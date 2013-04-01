@@ -178,9 +178,7 @@ void BALProblem::WriteToFile(const std::string& filename) const {
     } else {
       memcpy(angleaxis, parameters_ + 9 * i, 9 * sizeof(double));
     }
-    for (int j = 0; j < 9; ++j) {
-      fprintf(fptr, "%.16g\n", angleaxis[j]);
-    }
+	fprintf(fptr, "%.16g %.16g %.16g %.16g %.16g %.16g %.16g %.16g %.16g\n", angleaxis[0], angleaxis[1], angleaxis[2], angleaxis[3], angleaxis[4], angleaxis[5], angleaxis[6], angleaxis[7], angleaxis[8]);
   }
 
   const double* points = parameters_ + camera_block_size() * num_cameras_;
