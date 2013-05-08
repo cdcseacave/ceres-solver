@@ -40,6 +40,7 @@ SET(CERES_INTERNAL_SRC
     block_structure.cc
     canonical_views_clustering.cc
     cgnr_solver.cc
+    compressed_col_sparse_matrix_utils.cc
     compressed_row_jacobian_writer.cc
     compressed_row_sparse_matrix.cc
     conditioned_cost_function.cc
@@ -227,6 +228,8 @@ IF (${BUILD_TESTING} AND ${GFLAGS})
   CERES_TEST(array_utils)
   CERES_TEST(autodiff)
   CERES_TEST(autodiff_cost_function)
+  CERES_TEST(autodiff_local_parameterization)
+  CERES_TEST(blas)
   CERES_TEST(block_random_access_dense_matrix)
   CERES_TEST(block_random_access_sparse_matrix)
   CERES_TEST(block_sparse_matrix)
@@ -267,8 +270,10 @@ IF (${BUILD_TESTING} AND ${GFLAGS})
   CERES_TEST(schur_eliminator)
   CERES_TEST(solver_impl)
 
+  # TODO(sameeragarwal): This test should ultimately be made
+  # independent of SuiteSparse.
   IF (${SUITESPARSE_FOUND})
-    CERES_TEST(suitesparse)
+    CERES_TEST(compressed_col_sparse_matrix_utils)
   ENDIF (${SUITESPARSE_FOUND})
 
   CERES_TEST(symmetric_linear_solver)

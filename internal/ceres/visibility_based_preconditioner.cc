@@ -324,7 +324,7 @@ void VisibilityBasedPreconditioner::InitEliminator(
 }
 
 // Update the values of the preconditioner matrix and factorize it.
-bool VisibilityBasedPreconditioner::Update(const BlockSparseMatrixBase& A,
+bool VisibilityBasedPreconditioner::Update(const BlockSparseMatrix& A,
                                            const double* D) {
   const time_t start_time = time(NULL);
   const int num_rows = m_->num_rows();
@@ -421,19 +421,8 @@ bool VisibilityBasedPreconditioner::Factorize() {
 
   // Symbolic factorization is computed if we don't already have one handy.
   if (factor_ == NULL) {
-    if (options_.use_block_amd) {
-      factor_ = ss_.BlockAnalyzeCholesky(lhs, block_size_, block_size_);
-    } else {
-      factor_ = ss_.AnalyzeCholesky(lhs);
-    }
-
-    if (VLOG_IS_ON(2)) {
-      cholmod_print_common(const_cast<char*>("Symbolic Analysis"),
-                           ss_.mutable_cc());
-    }
+    factor_ = ss_.BlockAnalyzeCholesky(lhs, block_size_, block_size_);
   }
-
-  CHECK_NOTNULL(factor_);
 
   bool status = ss_.Cholesky(lhs, factor_);
   ss_.Free(lhs);

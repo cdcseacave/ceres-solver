@@ -58,7 +58,7 @@ namespace ceres {
 namespace internal {
 
 LinearSolver::Summary SchurComplementSolver::SolveImpl(
-    BlockSparseMatrixBase* A,
+    BlockSparseMatrix* A,
     const double* b,
     const LinearSolver::PerSolveOptions& per_solve_options,
     double* x) {
@@ -276,37 +276,42 @@ bool SparseSchurComplementSolver::SolveReducedLinearSystemUsingSuiteSparse(
     return true;
   }
 
-  cholmod_sparse* cholmod_lhs = ss_.CreateSparseMatrix(tsm);
-  // The matrix is symmetric, and the upper triangular part of the
-  // matrix contains the values.
-  cholmod_lhs->stype = 1;
+  cholmod_sparse* cholmod_lhs = NULL;
+  if (options().use_postordering) {
+    // If we are going to do a full symbolic analysis of the schur
+    // complement matrix from scratch and not rely on the
+    // pre-ordering, then the fastest path in cholmod_factorize is the
+    // one corresponding to upper triangular matrices.
 
-  cholmod_dense*  cholmod_rhs =
-      ss_.CreateDenseVector(const_cast<double*>(rhs()), num_rows, num_rows);
+    // Create a upper triangular symmetric matrix.
+    cholmod_lhs = ss_.CreateSparseMatrix(tsm);
+    cholmod_lhs->stype = 1;
 
-  // Symbolic factorization is computed if we don't already have one handy.
-  if (factor_ == NULL) {
-    if (options().use_block_amd) {
+    if (factor_ == NULL) {
       factor_ = ss_.BlockAnalyzeCholesky(cholmod_lhs, blocks_, blocks_);
-    } else {
-      factor_ = ss_.AnalyzeCholesky(cholmod_lhs);
     }
+  } else {
+    // If we are going to use the natural ordering (i.e. rely on the
+    // pre-ordering computed by solver_impl.cc), then the fastest
+    // path in cholmod_factorize is the one corresponding to lower
+    // triangular matrices.
 
-    if (VLOG_IS_ON(2)) {
-      cholmod_print_common(const_cast<char*>("Symbolic Analysis"),
-                           ss_.mutable_cc());
+    // Create a upper triangular symmetric matrix.
+    cholmod_lhs = ss_.CreateSparseMatrixTranspose(tsm);
+    cholmod_lhs->stype = -1;
+
+    if (factor_ == NULL) {
+      factor_ = ss_.AnalyzeCholeskyWithNaturalOrdering(cholmod_lhs);
     }
   }
 
-  CHECK_NOTNULL(factor_);
-
+  cholmod_dense*  cholmod_rhs =
+      ss_.CreateDenseVector(const_cast<double*>(rhs()), num_rows, num_rows);
   cholmod_dense* cholmod_solution =
       ss_.SolveCholesky(cholmod_lhs, factor_, cholmod_rhs);
 
   ss_.Free(cholmod_lhs);
-  cholmod_lhs = NULL;
   ss_.Free(cholmod_rhs);
-  cholmod_rhs = NULL;
 
   if (cholmod_solution == NULL) {
     LOG(WARNING) << "CHOLMOD solve failed.";
@@ -350,7 +355,8 @@ bool SparseSchurComplementSolver::SolveReducedLinearSystemUsingCXSparse(
 
   // Compute symbolic factorization if not available.
   if (cxsparse_factor_ == NULL) {
-    cxsparse_factor_ = CHECK_NOTNULL(cxsparse_.AnalyzeCholesky(lhs));
+    cxsparse_factor_ =
+        CHECK_NOTNULL(cxsparse_.BlockAnalyzeCholesky(lhs, blocks_, blocks_));
   }
 
   // Solve the linear system.

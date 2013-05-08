@@ -28,36 +28,40 @@
 //
 // Author: sameeragarwal@google.com (Sameer Agarwal)
 
-#include "ceres/preconditioner.h"
-#include "glog/logging.h"
+#ifndef CERES_INTERNAL_COMPRESSED_COL_SPARSE_MATRIX_UTILS_H_
+#define CERES_INTERNAL_COMPRESSED_COL_SPARSE_MATRIX_UTILS_H_
+
+#include <vector>
+#include "ceres/internal/port.h"
 
 namespace ceres {
 namespace internal {
 
-Preconditioner::~Preconditioner() {
-}
+// Extract the block sparsity pattern of the scalar compressed columns
+// matrix and return it in compressed column form. The compressed
+// column form is stored in two vectors block_rows, and block_cols,
+// which correspond to the row and column arrays in a compressed
+// column sparse matrix.
+//
+// If c_ij is the block in the matrix A corresponding to row block i
+// and column block j, then it is expected that A contains at least
+// one non-zero entry corresponding to the top left entry of c_ij,
+// as that entry is used to detect the presence of a non-zero c_ij.
+void CompressedColumnScalarMatrixToBlockMatrix(const int* scalar_rows,
+                                               const int* scalar_cols,
+                                               const vector<int>& row_blocks,
+                                               const vector<int>& col_blocks,
+                                               vector<int>* block_rows,
+                                               vector<int>* block_cols);
 
-SparseMatrixPreconditionerWrapper::SparseMatrixPreconditionerWrapper(
-    const SparseMatrix* matrix)
-    : matrix_(CHECK_NOTNULL(matrix)) {
-}
-
-SparseMatrixPreconditionerWrapper::~SparseMatrixPreconditionerWrapper() {
-}
-
-bool SparseMatrixPreconditionerWrapper::Update(const BlockSparseMatrix& A,
-                                               const double* D) {
-  return true;
-}
-
-void SparseMatrixPreconditionerWrapper::RightMultiply(const double* x,
-                                                      double* y) const {
-  matrix_->RightMultiply(x, y);
-}
-
-int  SparseMatrixPreconditionerWrapper::num_rows() const {
-  return matrix_->num_rows();
-}
+// Given a set of blocks and a permutation of these blocks, compute
+// the corresponding "scalar" ordering, where the scalar ordering of
+// size sum(blocks).
+void BlockOrderingToScalarOrdering(const vector<int>& blocks,
+                                   const vector<int>& block_ordering,
+                                   vector<int>* scalar_ordering);
 
 }  // namespace internal
 }  // namespace ceres
+
+#endif  // CERES_INTERNAL_COMPRESSED_COL_SPARSE_MATRIX_UTILS_H_

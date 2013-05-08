@@ -74,7 +74,7 @@ class LinearSolver {
         : type(SPARSE_NORMAL_CHOLESKY),
           preconditioner_type(JACOBI),
           sparse_linear_algebra_library(SUITE_SPARSE),
-          use_block_amd(true),
+          use_postordering(false),
           min_num_iterations(1),
           max_num_iterations(1),
           num_threads(1),
@@ -90,8 +90,8 @@ class LinearSolver {
 
     SparseLinearAlgebraLibraryType sparse_linear_algebra_library;
 
-    // See solver.h for explanation of this option.
-    bool use_block_amd;
+    // See solver.h for information about this flag.
+    bool use_postordering;
 
     // Number of internal iterations that the solver uses. This
     // parameter only makes sense for iterative solvers like CG.
@@ -316,7 +316,6 @@ class TypedLinearSolver : public LinearSolver {
 // Linear solvers that depend on acccess to the low level structure of
 // a SparseMatrix.
 typedef TypedLinearSolver<BlockSparseMatrix>         BlockSparseMatrixSolver;          // NOLINT
-typedef TypedLinearSolver<BlockSparseMatrixBase>     BlockSparseMatrixBaseSolver;      // NOLINT
 typedef TypedLinearSolver<CompressedRowSparseMatrix> CompressedRowSparseMatrixSolver;  // NOLINT
 typedef TypedLinearSolver<DenseSparseMatrix>         DenseSparseMatrixSolver;          // NOLINT
 typedef TypedLinearSolver<TripletSparseMatrix>       TripletSparseMatrixSolver;        // NOLINT

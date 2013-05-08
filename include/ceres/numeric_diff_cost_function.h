@@ -36,8 +36,10 @@
 // To get an numerically differentiated cost function, you must define
 // a class with a operator() (a functor) that computes the residuals.
 //
-// The function must write the computed value in the last argument (the only
-// non-const one) and return true to indicate success.
+// The function must write the computed value in the last argument
+// (the only non-const one) and return true to indicate success.
+// Please see cost_function.h for details on how the return value
+// maybe used to impose simple constraints on the parameter block.
 //
 // For example, consider a scalar error e = k - x'y, where both x and y are
 // two-dimensional column vector parameters, the prime sign indicates
@@ -230,8 +232,8 @@ class NumericDiffCostFunction
     if (N5) parameters_reference_copy[5] = parameters_reference_copy[4] + N4;
     if (N6) parameters_reference_copy[6] = parameters_reference_copy[5] + N5;
     if (N7) parameters_reference_copy[7] = parameters_reference_copy[6] + N6;
-    if (N7) parameters_reference_copy[8] = parameters_reference_copy[7] + N7;
-    if (N8) parameters_reference_copy[9] = parameters_reference_copy[8] + N8;
+    if (N8) parameters_reference_copy[8] = parameters_reference_copy[7] + N7;
+    if (N9) parameters_reference_copy[9] = parameters_reference_copy[8] + N8;
 
 #define COPY_PARAMETER_BLOCK(block)                                     \
   if (N ## block) memcpy(parameters_reference_copy[block],              \
