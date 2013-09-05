@@ -33,7 +33,7 @@ if(EXISTS "${SUITESPARSE_DIR}")
 	set(SUITESPARSE_FOUND TRUE)
 
 	## Set all SUITESPARSE component and their account into variables
-	set(SUITESPARSE_LIB_COMPONENTS amd camd colamd ccolamd cholmod SuiteSparse_config)
+	set(SUITESPARSE_LIB_COMPONENTS amd camd colamd ccolamd cholmod spqr SuiteSparse_config)
 
 	## Loop over each internal component and find its library file
 	foreach(LIBCOMP ${SUITESPARSE_LIB_COMPONENTS})
@@ -66,7 +66,7 @@ if(EXISTS "${SUITESPARSE_DIR}")
 			
 	endforeach()
 
-	set(SUITESPARSE_INCLUDE_DIRS "${SUITESPARSE_DIR}/include/SuiteSparse_config" "${SUITESPARSE_DIR}/include/AMD/Include" "${SUITESPARSE_DIR}/include/CAMD/Include" "${SUITESPARSE_DIR}/include/COLAMD/Include" "${SUITESPARSE_DIR}/include/CCOLAMD/Include" "${SUITESPARSE_DIR}/include/CHOLMOD/Include")
+	set(SUITESPARSE_INCLUDE_DIRS "${SUITESPARSE_DIR}/include/SuiteSparse_config" "${SUITESPARSE_DIR}/include/AMD/Include" "${SUITESPARSE_DIR}/include/CAMD/Include" "${SUITESPARSE_DIR}/include/COLAMD/Include" "${SUITESPARSE_DIR}/include/CCOLAMD/Include" "${SUITESPARSE_DIR}/include/CHOLMOD/Include" "${SUITESPARSE_DIR}/include/SPQR/Include")
 	message(STATUS "SUITESPARSE found (include: ${SUITESPARSE_INCLUDE_DIRS})")
 
 else()
@@ -80,14 +80,13 @@ endif()
 ##====================================================
 if(SUITESPARSE_FOUND)
 	if(SYSTEM_USE_OPENBLAS)
-	message("aaaaaaaaaaaaaaaaaaaaaaaa")
 		FIND_PACKAGE(OpenBLAS QUIET)
 		if(OpenBLAS_FOUND)
 			set(SUITESPARSE_LIBS ${SUITESPARSE_LIBS} ${OpenBLAS_LIBS})
 		endif()
 	else()
 		FIND_PACKAGE(LAPACK QUIET)
-		if(LAPACK)
+		if(LAPACK_FOUND)
 			set(SUITESPARSE_LIBS ${SUITESPARSE_LIBS} ${LAPACK_LIBS})
 		endif()
 	endif()

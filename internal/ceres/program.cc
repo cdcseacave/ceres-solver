@@ -44,6 +44,7 @@
 #include "ceres/problem.h"
 #include "ceres/residual_block.h"
 #include "ceres/stl_util.h"
+#include "ceres/miniglog/glog/logging.cc"
 
 namespace ceres {
 namespace internal {

@@ -1,4 +1,4 @@
-.. Ceres Solver documentation master file, crea`%ted by
+.. Ceres Solver documentation master file, created by
    sphinx-quickstart on Sat Jan 19 00:07:33 2013.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -17,7 +17,7 @@ squares problems.
 
 * Read the :ref:`chapter-tutorial`
 
-* Browse the :ref:`chapter-modeling` and :ref:`chapter-solving`
+* Browse the :ref:`chapter-modeling` API and :ref:`chapter-solving` API.
 
 * Join the `mailing list
   <https://groups.google.com/forum/?fromgroups#!forum/ceres-solver>`_
@@ -26,6 +26,13 @@ squares problems.
 * File bugs, feature requests in the `issue tracker
   <https://code.google.com/p/ceres-solver/issues/list>`_.
 
+* If you use Ceres Solver for a publication, you must cite it as::
+
+    @misc{ceres-solver,
+      author = "Sameer Agarwal and Keir Mierle and Others",
+      title = "Ceres Solver",
+      howpublished = "\url{https://code.google.com/p/ceres-solver/}",
+    }
 
 .. toctree::
    :maxdepth: 1
@@ -42,4 +49,3 @@ squares problems.
    version_history
    bibliography
    license
-   citation
