@@ -17,10 +17,10 @@
 #
 #----------------------------------------------------------
 
-find_path(SUITESPARSE_DIR "include/CHOLMOD/Include/cholmod.h"
+find_path(SUITESPARSE_DIR "include/CHOLMOD/Include/cholmod.h" "cholmod.h"
     HINTS "${SUITESPARSE_ROOT}" "$ENV{SUITESPARSE_ROOT}"
-    PATHS "$ENV{PROGRAMFILES}/SuiteSparse" "$ENV{PROGRAMW6432}/SuiteSparse"
-    PATH_SUFFIXES 
+    PATHS "$ENV{PROGRAMFILES}/SuiteSparse" "$ENV{PROGRAMW6432}/SuiteSparse" "/usr" "/usr/local"
+    PATH_SUFFIXES "suitesparse"
     DOC "Root directory of SUITESPARSE library")
 
 ##====================================================
@@ -33,13 +33,17 @@ if(EXISTS "${SUITESPARSE_DIR}")
 	set(SUITESPARSE_FOUND TRUE)
 
 	## Set all SUITESPARSE component and their account into variables
-	set(SUITESPARSE_LIB_COMPONENTS amd camd colamd ccolamd cholmod spqr SuiteSparse_config)
+	set(SUITESPARSE_LIB_COMPONENTS "amd" "camd" "colamd" "ccolamd" "cholmod" "spqr")
+	if(SYSTEM_OS STREQUAL OS_NAME_WIN)
+		set(SUITESPARSE_LIB_COMPONENTS "${SUITESPARSE_LIB_COMPONENTS}" "SuiteSparse_config")
+	endif()
 
 	## Loop over each internal component and find its library file
 	foreach(LIBCOMP ${SUITESPARSE_LIB_COMPONENTS})
 
 		find_library(SUITESPARSE_${LIBCOMP}_LIBRARY_DEBUG NAMES "${LIBCOMP}" PATHS "${SUITESPARSE_DIR}/lib${PACKAGE_LIB_SUFFIX_DBG}" NO_DEFAULT_PATH)
 		find_library(SUITESPARSE_${LIBCOMP}_LIBRARY_RELEASE NAMES "${LIBCOMP}" PATHS "${SUITESPARSE_DIR}/lib${PACKAGE_LIB_SUFFIX_REL}" NO_DEFAULT_PATH)
+		find_library(SUITESPARSE_${LIBCOMP}_LIBRARY_ALL NAMES "${LIBCOMP}" PATH_SUFFIXES "suitesparse")
 		
 		#Remove the cache value
 		set(SUITESPARSE_${LIBCOMP}_LIBRARY "" CACHE STRING "" FORCE)
@@ -53,6 +57,9 @@ if(EXISTS "${SUITESPARSE_DIR}")
 		#only release
 		elseif(SUITESPARSE_${LIBCOMP}_LIBRARY_RELEASE)
 			set(SUITESPARSE_${LIBCOMP}_LIBRARY ${SUITESPARSE_${LIBCOMP}_LIBRARY_RELEASE} CACHE STRING "" FORCE)
+		#both debug/release
+		elseif(SUITESPARSE_${LIBCOMP}_LIBRARY_ALL)
+			set(SUITESPARSE_${LIBCOMP}_LIBRARY ${SUITESPARSE_${LIBCOMP}_LIBRARY_ALL} CACHE STRING "" FORCE)
 		#no library found
 		else()
 			message("SUITESPARSE component NOT found: ${LIBCOMP}")
@@ -66,7 +73,15 @@ if(EXISTS "${SUITESPARSE_DIR}")
 			
 	endforeach()
 
-	set(SUITESPARSE_INCLUDE_DIRS "${SUITESPARSE_DIR}/include/SuiteSparse_config" "${SUITESPARSE_DIR}/include/AMD/Include" "${SUITESPARSE_DIR}/include/CAMD/Include" "${SUITESPARSE_DIR}/include/COLAMD/Include" "${SUITESPARSE_DIR}/include/CCOLAMD/Include" "${SUITESPARSE_DIR}/include/CHOLMOD/Include" "${SUITESPARSE_DIR}/include/SPQR/Include")
+	if("${SYSTEM_OS}" STREQUAL "${OS_NAME_WIN}")
+		set(SUITESPARSE_INCLUDE_DIR "${SUITESPARSE_DIR}/include")
+		set(SUITESPARSE_INCLUDE_DIRS "${SUITESPARSE_INCLUDE_DIR}/SuiteSparse_config"
+			"${SUITESPARSE_INCLUDE_DIR}/AMD/Include" "${SUITESPARSE_INCLUDE_DIR}/CAMD/Include"
+			"${SUITESPARSE_INCLUDE_DIR}/COLAMD/Include" "${SUITESPARSE_INCLUDE_DIR}/CCOLAMD/Include"
+			"${SUITESPARSE_INCLUDE_DIR}/CHOLMOD/Include" "${SUITESPARSE_INCLUDE_DIR}/SPQR/Include")
+	else()
+		set(SUITESPARSE_INCLUDE_DIRS "${SUITESPARSE_DIR}")
+	endif()
 	message(STATUS "SUITESPARSE found (include: ${SUITESPARSE_INCLUDE_DIRS})")
 
 else()
