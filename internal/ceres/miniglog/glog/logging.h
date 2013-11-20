@@ -294,10 +294,12 @@ class LoggerVoidify {
 #  define LOG(n)  LOG_IF(n, n <= MAX_LOG_LEVEL)
 #  define VLOG(n) LOG_IF(n, n <= MAX_LOG_LEVEL)
 #  define LG      LOG_IF(INFO, INFO <= MAX_LOG_LEVEL)
+#  define VLOG_IF(n, condition) LOG_IF(n, (n <= MAX_LOG_LEVEL) && condition)
 #else
 #  define LOG(n)  MessageLogger((char *)__FILE__, __LINE__, "native", n).stream()    // NOLINT
 #  define VLOG(n) MessageLogger((char *)__FILE__, __LINE__, "native", n).stream()    // NOLINT
 #  define LG      MessageLogger((char *)__FILE__, __LINE__, "native", INFO).stream() // NOLINT
+#  define VLOG_IF(n, condition) LOG_IF(n, condition)
 #endif
 
 // Currently, VLOG is always on for levels below MAX_LOG_LEVEL.
@@ -342,7 +344,7 @@ void LogMessageFatal(const char *file, int line, const T &message) {
 
 // Generic binary operator check macro. This should not be directly invoked,
 // instead use the binary comparison macros defined below.
-#define CHECK_OP(val1, val2, op) LOG_IF_FALSE(FATAL, (val1 op val2)) \
+#define CHECK_OP(val1, val2, op) LOG_IF_FALSE(FATAL, ((val1) op (val2))) \
   << "Check failed: " #val1 " " #op " " #val2 " "
 
 // Check_op macro definitions

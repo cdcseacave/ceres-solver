@@ -37,6 +37,7 @@
 
 #include "Eigen/Dense"
 #include "ceres/internal/port.h"
+#include "ceres/stringprintf.h"
 #include "glog/logging.h"
 
 namespace ceres {
@@ -136,6 +137,9 @@ bool FindPolynomialRoots(const Vector& polynomial_in,
   if (degree == 0) {
     LOG(WARNING) << "Trying to extract roots from a constant "
                  << "polynomial in FindPolynomialRoots";
+    // We return true with no roots, not false, as if the polynomial is constant
+    // it is correct that there are no roots. It is not the case that they were
+    // there, but that we have failed to extract them.
     return true;
   }
 
@@ -253,6 +257,12 @@ void MinimizePolynomial(const Vector& polynomial,
       *optimal_x = root;
     }
   }
+}
+
+string FunctionSample::ToDebugString() const {
+  return StringPrintf("[x: %.8e, value: %.8e, gradient: %.8e, "
+                      "value_is_valid: %d, gradient_is_valid: %d]",
+                      x, value, gradient, value_is_valid, gradient_is_valid);
 }
 
 Vector FindInterpolatingPolynomial(const vector<FunctionSample>& samples) {
