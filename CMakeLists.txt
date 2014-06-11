@@ -64,12 +64,6 @@ IF (EXISTS ${LOCAL_GIT_DIRECTORY})
   ENDIF (NOT EXISTS ${LOCAL_GIT_DIRECTORY}/hooks/commit-msg)
 ENDIF (EXISTS ${LOCAL_GIT_DIRECTORY})
 
-# Make CMake aware of the cmake folder for local FindXXX scripts,
-# append rather than set in case the user has passed their own
-# additional paths via -D.
-LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-INCLUDE(UpdateCacheVariable)
-
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -229,10 +223,11 @@ ENDMACRO(HANDLE_LEGACY_LIBRARY_DEPENDENCY_HINT)
 UNSET(CERES_COMPILE_OPTIONS)
 
 # Find dependencies:
-SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules" "${CMAKE_SOURCE_DIR}/cmake")
 
 # Define helper functions and macros.
 INCLUDE(cmake/Utils.cmake)
+INCLUDE(UpdateCacheVariable)
 
 # Init sesion with macros defined in Utils.cmake
 GetOperatingSystemArchitectureBitness(SYSTEM)

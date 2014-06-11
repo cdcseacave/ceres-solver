@@ -96,7 +96,7 @@ template <typename Vertex>
 int IndependentSetOrdering(const Graph<Vertex>& graph,
                            vector<Vertex>* ordering) {
   const HashSet<Vertex>& vertices = graph.vertices();
-  const int num_vertices = vertices.size();
+  const size_t num_vertices = vertices.size();
 
   CHECK_NOTNULL(ordering);
   ordering->clear();
@@ -173,7 +173,7 @@ int StableIndependentSetOrdering(const Graph<Vertex>& graph,
                                  vector<Vertex>* ordering) {
   CHECK_NOTNULL(ordering);
   const HashSet<Vertex>& vertices = graph.vertices();
-  const int num_vertices = vertices.size();
+  const size_t num_vertices = vertices.size();
   CHECK_EQ(vertices.size(), ordering->size());
 
   // Colors for labeling the graph during the BFS.

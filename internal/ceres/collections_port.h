@@ -179,8 +179,8 @@ struct hash<pair<T, T> > {
     size_t h2 = hash<T>()(p.second);
     // The decision below is at compile time
     return (sizeof(h1) <= sizeof(ceres::internal::uint32)) ?
-            ceres::internal::Hash32NumWithSeed(h1, h2) :
-            ceres::internal::Hash64NumWithSeed(h1, h2);
+            size_t(ceres::internal::Hash32NumWithSeed(h1, h2)) :
+            size_t(ceres::internal::Hash64NumWithSeed(h1, h2));
   }
   // Less than operator for MSVC.
   bool operator()(const pair<T, T>& a,
