@@ -28,6 +28,13 @@
 #
 # Author: keir@google.com (Keir Mierle)
 
+# Only Ceres itself should be compiled with CERES_BUILDING_SHARED_LIBRARY
+# defined, any users of Ceres will have CERES_USING_SHARED_LIBRARY defined
+# for them in Ceres' config.h if appropriate.
+IF (BUILD_SHARED_LIBS)
+  REMOVE_DEFINITIONS(-DCERES_BUILDING_SHARED_LIBRARY)
+ENDIF()
+
 ADD_EXECUTABLE(helloworld helloworld.cc)
 TARGET_LINK_LIBRARIES(helloworld ceres)
 
@@ -49,6 +56,9 @@ IF (NOT MSVC)
   TARGET_LINK_LIBRARIES(curve_fitting_c m)
 ENDIF (NOT MSVC)
 
+ADD_EXECUTABLE(ellipse_approximation ellipse_approximation.cc)
+TARGET_LINK_LIBRARIES(ellipse_approximation ceres)
+
 ADD_EXECUTABLE(robust_curve_fitting robust_curve_fitting.cc)
 TARGET_LINK_LIBRARIES(robust_curve_fitting ceres)
 
@@ -63,6 +73,9 @@ IF (GFLAGS)
   ADD_EXECUTABLE(nist nist.cc)
   TARGET_LINK_LIBRARIES(nist ceres ${GFLAGS_LIBRARIES})
 
+  ADD_EXECUTABLE(more_garbow_hillstrom more_garbow_hillstrom.cc)
+  TARGET_LINK_LIBRARIES(more_garbow_hillstrom ceres ${GFLAGS_LIBRARIES})
+
   ADD_EXECUTABLE(circle_fit circle_fit.cc)
   TARGET_LINK_LIBRARIES(circle_fit ceres ${GFLAGS_LIBRARIES})
 
@@ -75,9 +88,17 @@ IF (GFLAGS)
                  libmv_bundle_adjuster.cc)
   TARGET_LINK_LIBRARIES(libmv_bundle_adjuster ceres ${GFLAGS_LIBRARIES})
 
+  ADD_EXECUTABLE(libmv_homography
+                 libmv_homography.cc)
+  TARGET_LINK_LIBRARIES(libmv_homography ceres ${GFLAGS_LIBRARIES})
+
   ADD_EXECUTABLE(denoising
                  denoising.cc
                  fields_of_experts.cc)
   TARGET_LINK_LIBRARIES(denoising ceres ${GFLAGS_LIBRARIES})
-ENDIF (GFLAGS)
 
+  ADD_EXECUTABLE(robot_pose_mle
+                 robot_pose_mle.cc)
+  TARGET_LINK_LIBRARIES(robot_pose_mle ceres ${GFLAGS_LIBRARIES})
+
+ENDIF (GFLAGS)

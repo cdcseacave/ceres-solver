@@ -28,9 +28,8 @@
 //
 // Author: sameeragarwal@google.com (Sameer Agarwal)
 
-#ifndef CERES_NO_LINE_SEARCH_MINIMIZER
-#include <iomanip> // For std::setprecision.
-#include <iostream> // For std::scientific.
+#include <iomanip>
+#include <iostream>  // NOLINT
 
 #include "ceres/line_search.h"
 
@@ -69,9 +68,11 @@ FunctionSample ValueAndGradientSample(const double x,
 
 }  // namespace
 
+
+std::ostream& operator<<(std::ostream &os, const FunctionSample& sample);
+
 // Convenience stream operator for pushing FunctionSamples into log messages.
-std::ostream& operator<<(std::ostream &os,
-                         const FunctionSample& sample) {
+std::ostream& operator<<(std::ostream &os, const FunctionSample& sample) {
   os << sample.ToDebugString();
   return os;
 }
@@ -274,7 +275,7 @@ void ArmijoLineSearch::Search(const double step_size_estimate,
                        "satisfying the sufficient decrease condition within "
                        "specified max_num_iterations: %d.",
                        options().max_num_iterations);
-      LOG(WARNING) << summary->error;
+      LOG_IF(WARNING, !options().is_silent) << summary->error;
       return;
     }
 
@@ -292,7 +293,7 @@ void ArmijoLineSearch::Search(const double step_size_estimate,
           StringPrintf("Line search failed: step_size too small: %.5e "
                        "with descent_direction_max_norm: %.5e.", step_size,
                        descent_direction_max_norm);
-      LOG(WARNING) << summary->error;
+      LOG_IF(WARNING, !options().is_silent) << summary->error;
       return;
     }
 
@@ -383,6 +384,13 @@ void WolfeLineSearch::Search(const double step_size_estimate,
     summary->success = true;
     return;
   }
+
+  VLOG(3) << std::scientific << std::setprecision(kErrorMessageNumericPrecision)
+          << "Starting line search zoom phase with bracket_low: "
+          << bracket_low << ", bracket_high: " << bracket_high
+          << ", bracket width: " << fabs(bracket_low.x - bracket_high.x)
+          << ", bracket abs delta cost: "
+          << fabs(bracket_low.value - bracket_high.value);
 
   // Wolfe Zoom phase: Called when the Bracketing phase finds an interval of
   // non-zero, finite width that should bracket step sizes which satisfy the
@@ -493,6 +501,11 @@ bool WolfeLineSearch::BracketingPhase(
       *do_zoom_search = true;
       *bracket_low = previous;
       *bracket_high = current;
+      VLOG(3) << std::scientific
+              << std::setprecision(kErrorMessageNumericPrecision)
+              << "Bracket found: current step (" << current.x
+              << ") violates Armijo sufficient condition, or has passed an "
+              << "inflection point of f() based on value.";
       break;
     }
 
@@ -503,6 +516,11 @@ bool WolfeLineSearch::BracketingPhase(
       // valid termination point, therefore a Zoom not required.
       *bracket_low = current;
       *bracket_high = current;
+      VLOG(3) << std::scientific
+              << std::setprecision(kErrorMessageNumericPrecision)
+              << "Bracketing phase found step size: " << current.x
+              << ", satisfying strong Wolfe conditions, initial_position: "
+              << initial_position << ", current: " << current;
       break;
 
     } else if (current.value_is_valid && current.gradient >= 0) {
@@ -515,6 +533,9 @@ bool WolfeLineSearch::BracketingPhase(
       // Note inverse ordering from first bracket case.
       *bracket_low = current;
       *bracket_high = previous;
+      VLOG(3) << "Bracket found: current step (" << current.x
+              << ") satisfies Armijo, but has gradient >= 0, thus have passed "
+              << "an inflection point of f().";
       break;
 
     } else if (current.value_is_valid &&
@@ -525,15 +546,16 @@ bool WolfeLineSearch::BracketingPhase(
       // conditions, or a valid bracket containing such a point. Stop searching
       // and set bracket_low to the size size amongst all those tested which
       // minimizes f() and satisfies the Armijo condition.
-      LOG(WARNING) << "Line search failed: Wolfe bracketing phase shrank "
-                   << "bracket width: " << fabs(current.x - previous.x)
-                   <<  ", to < tolerance: " << options().min_step_size
-                   << ", with descent_direction_max_norm: "
-                   << descent_direction_max_norm << ", and failed to find "
-                   << "a point satisfying the strong Wolfe conditions or a "
-                   << "bracketing containing such a point. Accepting "
-                   << "point found satisfying Armijo condition only, to "
-                   << "allow continuation.";
+      LOG_IF(WARNING, !options().is_silent)
+          << "Line search failed: Wolfe bracketing phase shrank "
+          << "bracket width: " << fabs(current.x - previous.x)
+          <<  ", to < tolerance: " << options().min_step_size
+          << ", with descent_direction_max_norm: "
+          << descent_direction_max_norm << ", and failed to find "
+          << "a point satisfying the strong Wolfe conditions or a "
+          << "bracketing containing such a point. Accepting "
+          << "point found satisfying Armijo condition only, to "
+          << "allow continuation.";
       *bracket_low = current;
       break;
 
@@ -546,7 +568,7 @@ bool WolfeLineSearch::BracketingPhase(
                        "find a point satisfying strong Wolfe conditions, or a "
                        "bracket containing such a point within specified "
                        "max_num_iterations: %d", options().max_num_iterations);
-      LOG(WARNING) << summary->error;
+      LOG_IF(WARNING, !options().is_silent) << summary->error;
       // Ensure that bracket_low is always set to the step size amongst all
       // those tested which minimizes f() and satisfies the Armijo condition
       // when we terminate due to the 'artificial' max_num_iterations condition.
@@ -585,7 +607,7 @@ bool WolfeLineSearch::BracketingPhase(
           StringPrintf("Line search failed: step_size too small: %.5e "
                        "with descent_direction_max_norm: %.5e", step_size,
                        descent_direction_max_norm);
-      LOG(WARNING) << summary->error;
+      LOG_IF(WARNING, !options().is_silent) << summary->error;
       return false;
     }
 
@@ -669,7 +691,7 @@ bool WolfeLineSearch::ZoomPhase(const FunctionSample& initial_position,
                      initial_position.ToDebugString().c_str(),
                      bracket_low.ToDebugString().c_str(),
                      bracket_high.ToDebugString().c_str());
-    LOG(WARNING) << summary->error;
+    LOG_IF(WARNING, !options().is_silent) << summary->error;
     solution->value_is_valid = false;
     return false;
   }
@@ -690,7 +712,7 @@ bool WolfeLineSearch::ZoomPhase(const FunctionSample& initial_position,
                        "within specified max_num_iterations: %d, "
                        "(num iterations taken for bracketing: %d).",
                        options().max_num_iterations, num_bracketing_iterations);
-      LOG(WARNING) << summary->error;
+      LOG_IF(WARNING, !options().is_silent) << summary->error;
       return false;
     }
     if (fabs(bracket_high.x - bracket_low.x) * descent_direction_max_norm
@@ -702,7 +724,7 @@ bool WolfeLineSearch::ZoomPhase(const FunctionSample& initial_position,
                        "too small with descent_direction_max_norm: %.5e.",
                        fabs(bracket_high.x - bracket_low.x),
                        descent_direction_max_norm);
-      LOG(WARNING) << summary->error;
+      LOG_IF(WARNING, !options().is_silent) << summary->error;
       return false;
     }
 
@@ -753,9 +775,15 @@ bool WolfeLineSearch::ZoomPhase(const FunctionSample& initial_position,
                        "between low_step: %.5e and high_step: %.5e "
                        "at which function is valid.",
                        solution->x, bracket_low.x, bracket_high.x);
-      LOG(WARNING) << summary->error;
+      LOG_IF(WARNING, !options().is_silent) << summary->error;
       return false;
     }
+
+    VLOG(3) << "Zoom iteration: "
+            << summary->num_iterations - num_bracketing_iterations
+            << ", bracket_low: " << bracket_low
+            << ", bracket_high: " << bracket_high
+            << ", minimizing solution: " << *solution;
 
     if ((solution->value > (initial_position.value
                             + options().sufficient_decrease
@@ -772,6 +800,10 @@ bool WolfeLineSearch::ZoomPhase(const FunctionSample& initial_position,
     if (fabs(solution->gradient) <=
         -options().sufficient_curvature_decrease * initial_position.gradient) {
       // Found a valid termination point satisfying strong Wolfe conditions.
+      VLOG(3) << std::scientific
+              << std::setprecision(kErrorMessageNumericPrecision)
+              << "Zoom phase found step size: " << solution->x
+              << ", satisfying strong Wolfe conditions.";
       break;
 
     } else if (solution->gradient * (bracket_high.x - bracket_low.x) >= 0) {
@@ -787,5 +819,3 @@ bool WolfeLineSearch::ZoomPhase(const FunctionSample& initial_position,
 
 }  // namespace internal
 }  // namespace ceres
-
-#endif  // CERES_NO_LINE_SEARCH_MINIMIZER
