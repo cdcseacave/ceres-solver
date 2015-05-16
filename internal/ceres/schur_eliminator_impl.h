@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -139,7 +139,7 @@ Init(int num_eliminate_blocks, const CompressedRowBlockStructure* bs) {
         }
       }
 
-      buffer_size_ = max(buffer_size, buffer_size_);
+      buffer_size_ = std::max(buffer_size, buffer_size_);
       ++chunk.size;
     }
 

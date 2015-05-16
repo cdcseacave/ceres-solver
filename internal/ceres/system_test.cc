@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -59,6 +59,9 @@
 
 namespace ceres {
 namespace internal {
+
+using std::string;
+using std::vector;
 
 const bool kAutomaticOrdering = true;
 const bool kUserOrdering = false;
@@ -122,8 +125,9 @@ struct SolverConfig {
 //       Solver::Options* mutable_solver_options();
 //   };
 template <typename SystemTestProblem>
-void RunSolversAndCheckTheyMatch(const vector<SolverConfig>& configurations,
-                                 const double max_abs_difference) {
+void RunSolversAndCheckTheyMatch(
+    const vector<SolverConfig>& configurations,
+    const double max_abs_difference) {
   int num_configurations = configurations.size();
   vector<SystemTestProblem*> problems;
   vector<vector<double> > final_residuals(num_configurations);
@@ -348,7 +352,7 @@ class BundleAdjustmentProblem {
 
     if (!fptr) {
       LOG(FATAL) << "File Error: unable to open file " << filename;
-    };
+    }
 
     // This will die horribly on invalid files. Them's the breaks.
     FscanfOrDie(fptr, "%d", &num_cameras_);

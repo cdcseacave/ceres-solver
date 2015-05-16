@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2014 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,8 @@
 
 namespace ceres {
 namespace internal {
+
+using std::vector;
 
 // Templated base class for the CostFunction signatures.
 template <int kNumResiduals, int N0, int N1, int N2>
@@ -103,7 +105,7 @@ TEST(_, ReorderResidualBlockNormalFunction) {
   Program* program = problem.mutable_program();
   program->SetParameterOffsetsAndIndex();
 
-  string message;
+  std::string message;
   EXPECT_TRUE(LexicographicallyOrderResidualBlocks(
                   2,
                   problem.mutable_program(),
@@ -129,7 +131,7 @@ TEST(_, ApplyOrderingOrderingTooSmall) {
   linear_solver_ordering.AddElementToGroup(&y, 1);
 
   Program program(problem.program());
-  string message;
+  std::string message;
   EXPECT_FALSE(ApplyOrdering(problem.parameter_map(),
                              linear_solver_ordering,
                              &program,
@@ -152,7 +154,7 @@ TEST(_, ApplyOrderingNormal) {
   linear_solver_ordering.AddElementToGroup(&z, 1);
 
   Program* program = problem.mutable_program();
-  string message;
+  std::string message;
 
   EXPECT_TRUE(ApplyOrdering(problem.parameter_map(),
                             linear_solver_ordering,

@@ -1,6 +1,6 @@
 # Ceres Solver - A fast non-linear least squares minimizer
-# Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
-# http://code.google.com/p/ceres-solver/
+# Copyright 2015 Google Inc. All rights reserved.
+# http://ceres-solver.org/
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -67,7 +67,6 @@ SET(CERES_INTERNAL_SRC
     gradient_problem.cc
     gradient_problem_solver.cc
     implicit_schur_complement.cc
-    incomplete_lq_factorization.cc
     iterative_schur_complement_solver.cc
     levenberg_marquardt_strategy.cc
     lapack.cc
@@ -146,10 +145,14 @@ IF (NOT MINIGLOG AND GLOG_FOUND)
 ENDIF (NOT MINIGLOG AND GLOG_FOUND)
 
 IF (SUITESPARSE AND SUITESPARSE_FOUND)
+  # Define version information for use in Solver::FullReport.
+  ADD_DEFINITIONS(-DCERES_SUITESPARSE_VERSION="${SUITESPARSE_VERSION}")
   LIST(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${SUITESPARSE_LIBS})
   LIST(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${LAPACK_LIBS})
 ENDIF (SUITESPARSE AND SUITESPARSE_FOUND)
 IF (CXSPARSE AND CXSPARSE_FOUND)
+  # Define version information for use in Solver::FullReport.
+  ADD_DEFINITIONS(-DCERES_CXSPARSE_VERSION="${CXSPARSE_VERSION}")
   LIST(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${CXSPARSE_LIBRARIES})
 ENDIF (CXSPARSE AND CXSPARSE_FOUND)
 
@@ -248,6 +251,7 @@ IF (BUILD_TESTING AND GFLAGS)
   CERES_TEST(corrector)
   CERES_TEST(cost_function_to_functor)
   CERES_TEST(covariance)
+  CERES_TEST(cubic_interpolation)
   CERES_TEST(dense_sparse_matrix)
   CERES_TEST(dynamic_autodiff_cost_function)
   CERES_TEST(dynamic_compressed_row_sparse_matrix)
@@ -255,10 +259,12 @@ IF (BUILD_TESTING AND GFLAGS)
   CERES_TEST(evaluator)
   CERES_TEST(gradient_checker)
   CERES_TEST(gradient_checking_cost_function)
+  CERES_TEST(gradient_problem)
+  CERES_TEST(gradient_problem_solver)
   CERES_TEST(graph)
   CERES_TEST(graph_algorithms)
+  CERES_TEST(householder_vector)
   CERES_TEST(implicit_schur_complement)
-  CERES_TEST(incomplete_lq_factorization)
   CERES_TEST(iterative_schur_complement_solver)
   CERES_TEST(jet)
   CERES_TEST(levenberg_marquardt_strategy)
@@ -290,6 +296,8 @@ IF (BUILD_TESTING AND GFLAGS)
   # independent of SuiteSparse.
   IF (SUITESPARSE AND SUITESPARSE_FOUND)
     CERES_TEST(compressed_col_sparse_matrix_utils)
+    TARGET_LINK_LIBRARIES(compressed_col_sparse_matrix_utils_test
+                          ${SUITESPARSE_LIBRARIES})
   ENDIF (SUITESPARSE AND SUITESPARSE_FOUND)
 
   CERES_TEST(symmetric_linear_solver)

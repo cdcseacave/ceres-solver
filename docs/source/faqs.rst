@@ -20,7 +20,7 @@ Building
    performance. `google-glog <http://code.google.com/p/google-glog>`_
    allows you to control its behaviour from the command line `flags
    <http://google-glog.googlecode.com/svn/trunk/doc/glog.html>`_. Starting
-   with ``-logtostdterr`` you can add ``-v=N`` for increasing values
+   with ``-logtostderr`` you can add ``-v=N`` for increasing values
    of ``N`` to get more and more verbose and detailed information
    about Ceres internals.
 
@@ -76,8 +76,8 @@ Modeling
    function is the Coordinate transformation between the `ECEF
    <http://en.wikipedia.org/wiki/ECEF>`_ and the `WGS84
    <http://en.wikipedia.org/wiki/World_Geodetic_System>`_ where the
-   conversion from WGS84 from ECEF is analytic, but the conversion
-   back to ECEF uses an iterative algorithm. So how do you compute the
+   conversion from WGS84 to ECEF is analytic, but the conversion
+   back to WGS84 uses an iterative algorithm. So how do you compute the
    derivative of the ECEF to WGS84 transformation?
 
    One obvious approach would be to numerically
@@ -97,7 +97,7 @@ Modeling
    Algorithmically this means that given :math:`y`, compute :math:`x =
    f^{-1}(y)` by whatever means you can. Evaluate the Jacobian of
    :math:`f` at :math:`x`. If the Jacobian matrix is invertible, then
-   the inverse is the Jacobian of the inverse at :math:`y`.
+   its inverse is the Jacobian of :math:`f^{-1}(y)` at  :math:`y`.
 
    One can put this into practice with the following code fragment.
 

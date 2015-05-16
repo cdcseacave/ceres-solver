@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2014 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -173,7 +173,7 @@ class CERES_EXPORT IdentityParameterization : public LocalParameterization {
 class CERES_EXPORT SubsetParameterization : public LocalParameterization {
  public:
   explicit SubsetParameterization(int size,
-                                  const vector<int>& constant_parameters);
+                                  const std::vector<int>& constant_parameters);
   virtual ~SubsetParameterization() {}
   virtual bool Plus(const double* x,
                     const double* delta,
@@ -191,7 +191,7 @@ class CERES_EXPORT SubsetParameterization : public LocalParameterization {
 
  private:
   const int local_size_;
-  vector<int> constancy_mask_;
+  std::vector<int> constancy_mask_;
 };
 
 // Plus(x, delta) = [cos(|delta|), sin(|delta|) delta / |delta|] * x
@@ -208,6 +208,37 @@ class CERES_EXPORT QuaternionParameterization : public LocalParameterization {
                                double* jacobian) const;
   virtual int GlobalSize() const { return 4; }
   virtual int LocalSize() const { return 3; }
+};
+
+
+// This provides a parameterization for homogeneous vectors which are commonly
+// used in Structure for Motion problems.  One example where they are used is
+// in representing points whose triangulation is ill-conditioned. Here
+// it is advantageous to use an over-parameterization since homogeneous vectors
+// can represent points at infinity.
+//
+// The plus operator is defined as
+// Plus(x, delta) =
+//    [sin(0.5 * |delta|) * delta / |delta|, cos(0.5 * |delta|)] * x
+// with * defined as an operator which applies the update orthogonal to x to
+// remain on the sphere. We assume that the last element of x is the scalar
+// component. The size of the homogeneous vector is required to be greater than
+// 1.
+class CERES_EXPORT HomogeneousVectorParameterization :
+      public LocalParameterization {
+ public:
+  explicit HomogeneousVectorParameterization(int size);
+  virtual ~HomogeneousVectorParameterization() {}
+  virtual bool Plus(const double* x,
+                    const double* delta,
+                    double* x_plus_delta) const;
+  virtual bool ComputeJacobian(const double* x,
+                               double* jacobian) const;
+  virtual int GlobalSize() const { return size_; }
+  virtual int LocalSize() const { return size_ - 1; }
+
+ private:
+  const int size_;
 };
 
 }  // namespace ceres

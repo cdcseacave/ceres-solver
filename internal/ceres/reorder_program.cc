@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2014 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -56,6 +56,12 @@
 
 namespace ceres {
 namespace internal {
+
+using std::map;
+using std::set;
+using std::string;
+using std::vector;
+
 namespace {
 
 // Find the minimum index of any parameter block to the given
@@ -87,7 +93,7 @@ Eigen::SparseMatrix<int> CreateBlockJacobian(
   const int* rows = block_jacobian_transpose.rows();
   const int* cols = block_jacobian_transpose.cols();
   int num_nonzeros = block_jacobian_transpose.num_nonzeros();
-  std::vector<Triplet> triplets;
+  vector<Triplet> triplets;
   triplets.reserve(num_nonzeros);
   for (int i = 0; i < num_nonzeros; ++i) {
     triplets.push_back(Triplet(cols[i], rows[i], 1));
@@ -217,9 +223,7 @@ bool ApplyOrdering(const ProblemImpl::ParameterMap& parameter_map,
       program->mutable_parameter_blocks();
   parameter_blocks->clear();
 
-  const map<int, set<double*> >& groups =
-      ordering.group_to_elements();
-
+  const map<int, set<double*> >& groups = ordering.group_to_elements();
   for (map<int, set<double*> >::const_iterator group_it = groups.begin();
        group_it != groups.end();
        ++group_it) {

@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -45,6 +45,8 @@
 
 namespace ceres {
 namespace internal {
+
+using std::string;
 
 LinearLeastSquaresProblem* CreateLinearLeastSquaresProblemFromId(int id) {
   switch (id) {
@@ -97,11 +99,11 @@ LinearLeastSquaresProblem* LinearLeastSquaresProblem0() {
   int counter = 0;
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j< 2; ++j) {
-      Ai[counter]=i;
-      Aj[counter]=j;
+      Ai[counter] = i;
+      Aj[counter] = j;
       ++counter;
     }
-  };
+  }
 
   Ax[0] = 1.;
   Ax[1] = 2.;
@@ -527,7 +529,7 @@ bool DumpLinearLeastSquaresProblemToConsole(const SparseMatrix* A,
     LOG(INFO) << "x: \n" << ConstVectorRef(x, A->num_cols());
   }
   return true;
-};
+}
 
 void WriteArrayToFileOrDie(const string& filename,
                            const double* x,
@@ -619,7 +621,7 @@ bool DumpLinearLeastSquaresProblem(const string& filename_base,
                                                      num_eliminate_blocks);
     default:
       LOG(FATAL) << "Unknown DumpFormatType " << dump_format_type;
-  };
+  }
 
   return true;
 }

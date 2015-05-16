@@ -1,6 +1,6 @@
 # Ceres Solver - A fast non-linear least squares minimizer
-# Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
-# http://code.google.com/p/ceres-solver/
+# Copyright 2015 Google Inc. All rights reserved.
+# http://ceres-solver.org/
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -63,6 +63,24 @@ IF (EXISTS ${LOCAL_GIT_DIRECTORY})
            WORLD_READ WORLD_EXECUTE)
   ENDIF (NOT EXISTS ${LOCAL_GIT_DIRECTORY}/hooks/commit-msg)
 ENDIF (EXISTS ${LOCAL_GIT_DIRECTORY})
+
+# On OS X, add the Homebrew prefix to the set of prefixes searched by
+# CMake in find_path & find_library.  This should ensure that we can
+# still build Ceres even if Homebrew is installed in a non-standard
+# location (not /usr/local).
+IF (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  FIND_PROGRAM(HOMEBREW_EXECUTABLE brew)
+  MARK_AS_ADVANCED(FORCE HOMEBREW_EXECUTABLE)
+  IF (HOMEBREW_EXECUTABLE)
+    # Detected a Homebrew install, query for its install prefix.
+    EXECUTE_PROCESS(COMMAND ${HOMEBREW_EXECUTABLE} --prefix
+      OUTPUT_VARIABLE HOMEBREW_INSTALL_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    MESSAGE(STATUS "Detected Homebrew with install prefix: "
+      "${HOMEBREW_INSTALL_PREFIX}, adding to CMake search paths.")
+    LIST(APPEND CMAKE_PREFIX_PATH "${HOMEBREW_INSTALL_PREFIX}")
+  ENDIF()
+ENDIF()
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -160,7 +178,11 @@ IF (IOS)
   UPDATE_CACHE_VARIABLE(GFLAGS OFF)
   UPDATE_CACHE_VARIABLE(OPENMP OFF)
 
-  MESSAGE(STATUS "Building for iOS: SuiteSparse, CXSparse, gflags and OpenMP are not available.")
+  # Apple claims that the BLAS call dsyrk_ is a private API, and will not allow you
+  # to submit to the Apple Store if the symbol is present.
+  UPDATE_CACHE_VARIABLE(LAPACK OFF)
+  
+  MESSAGE(STATUS "Building for iOS: SuiteSparse, CXSparse, LAPACK, gflags, and OpenMP are not available.")
 
   UPDATE_CACHE_VARIABLE(BUILD_EXAMPLES OFF)
   MESSAGE(STATUS "Building for iOS, will not build examples.")
@@ -179,7 +201,7 @@ ENDIF (IOS)
 # <DEPENDENCY>_LIB / <DEPENDENCY>_INCLUDE.  Since then, Ceres now has
 # FindPackage() scripts for all of its dependencies which obey the standard
 # CMake variables: <DEPENDENCY>_LIBRARIES & <DEPENDENCY>_INCLUDE_DIRS.  In order
-# to ensure backwards compatibility, we use convert any legacy variables to
+# to ensure backwards compatibility, convert any legacy variables to
 # _directory_ hints for the FindPackage() scripts.
 MACRO(HANDLE_LEGACY_INCLUDE_DEPENDENCY_HINT
     LEGACY_VAR DIRECTORY_HINT_VAR)
@@ -193,8 +215,7 @@ MACRO(HANDLE_LEGACY_INCLUDE_DEPENDENCY_HINT
       "Please use either the search directory hints variable: "
       "${DIRECTORY_HINT_VAR} or ${DEPENDENCY_NAME}_INCLUDE_DIR to specify "
       "exactly the directory used (no search performed), see: "
-      "http://homes.cs.washington.edu/~sagarwal/ceres-solver/dev/building.html "
-      "for more information.")
+      "http://ceres-solver.org/building.html for more information.")
     LIST(APPEND ${DIRECTORY_HINT_VAR} ${${LEGACY_VAR}})
   ENDIF (DEFINED ${LEGACY_VAR})
 ENDMACRO(HANDLE_LEGACY_INCLUDE_DEPENDENCY_HINT)
@@ -211,8 +232,7 @@ MACRO(HANDLE_LEGACY_LIBRARY_DEPENDENCY_HINT
       "Please use either the search directory hints variable: "
       "${DIRECTORY_HINT_VAR} or ${DEPENDENCY_NAME}_LIBRARY to specify "
       "exactly the library used (no search performed), see: "
-      "http://homes.cs.washington.edu/~sagarwal/ceres-solver/dev/building.html "
-      "for more information.")
+      "http://ceres-solver.org/building.html for more information.")
     IF (EXISTS ${${LEGACY_VAR}} AND
         NOT IS_DIRECTORY ${${LEGACY_VAR}})
       # User specified an explicit (library) file using the legacy variable
@@ -326,6 +346,16 @@ ELSE (CXSPARSE)
                          CXSPARSE_LIBRARY)
 ENDIF (CXSPARSE)
 
+# Ensure that the user understands they have disabled all sparse libraries.
+IF (NOT SUITESPARSE AND NOT CXSPARSE AND NOT EIGENSPARSE)
+  MESSAGE("   ===============================================================")
+  MESSAGE("   Compiling without any sparse library: SuiteSparse, CXSparse ")
+  MESSAGE("   & Eigen (Sparse) are all disabled or unavailable.  No sparse ")
+  MESSAGE("   linear solvers (SPARSE_NORMAL_CHOLESKY & SPARSE_SCHUR)")
+  MESSAGE("   will be available when Ceres is used.")
+  MESSAGE("   ===============================================================")
+ENDIF(NOT SUITESPARSE AND NOT CXSPARSE AND NOT EIGENSPARSE)
+
 # GFlags.
 IF (GFLAGS)
   HANDLE_LEGACY_INCLUDE_DEPENDENCY_HINT(GFLAGS_INCLUDE GFLAGS_INCLUDE_DIR_HINTS)
@@ -348,7 +378,8 @@ ELSE (GFLAGS)
   # made search variables visible in GUI for user to set, but then user disables
   # GFLAGS instead of setting them.
   MARK_AS_ADVANCED(FORCE GFLAGS_INCLUDE_DIR
-                         GFLAGS_LIBRARY)
+                         GFLAGS_LIBRARY
+                         GFLAGS_NAMESPACE)
 ENDIF (GFLAGS)
 
 # MiniGLog.
@@ -579,6 +610,18 @@ ENDIF (CMAKE_BUILD_TYPE STREQUAL "Release")
 
 SET (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${CERES_CXX_FLAGS}")
 
+IF (MINGW)
+  # MinGW produces code that segfaults when performing matrix multiplications
+  # in Eigen when compiled with -O3 (see [1]), as such force the use of -O2
+  # which works.
+  #
+  # [1] http://eigen.tuxfamily.org/bz/show_bug.cgi?id=556
+  MESSAGE("-- MinGW detected, forcing -O2 instead of -O3 in Release for Eigen due "
+          "to a MinGW bug: http://eigen.tuxfamily.org/bz/show_bug.cgi?id=556")
+  STRING(REPLACE "-O3" "-O2" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+  UPDATE_CACHE_VARIABLE(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+ENDIF (MINGW)
+
 # After the tweaks for the compile settings, disable some warnings on MSVC.
 IF (MSVC)
   # Disable signed/unsigned int conversion warnings.
@@ -685,7 +728,12 @@ LIST(REMOVE_DUPLICATES CERES_COMPILE_OPTIONS)
 INCLUDE(CreateCeresConfig)
 CREATE_CERES_CONFIG("${CERES_COMPILE_OPTIONS}"
   ${CMAKE_CURRENT_BINARY_DIR}/config/ceres/internal)
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/config)
+# Force the location containing the configured config.h to the front of the
+# include_directories list (by default it is appended to the back) to ensure
+# that if the user has an installed version of Ceres in the same location as one
+# of the dependencies (e.g. /usr/local) that we find the config.h we just
+# configured, not the (older) installed config.h.
+INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/config)
 
 ADD_SUBDIRECTORY(internal/ceres)
 

@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,8 @@
 // Author: keir@google.com (Keir Mierle)
 //
 // Utility functions useful for testing.
+
+#include "ceres/test_util.h"
 
 #include <algorithm>
 #include <cmath>
@@ -118,7 +120,7 @@ void ExpectArraysClose(int n,
   }
 }
 
-string TestFileAbsolutePath(const string& filename) {
+std::string TestFileAbsolutePath(const std::string& filename) {
   return JoinPath(FLAGS_test_srcdir + CERES_TEST_SRCDIR_SUFFIX,
                   filename);
 }

@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2013 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -91,6 +91,8 @@ struct NumericDiff {
       double const* residuals_at_eval_point,
       const double relative_step_size,
       int num_residuals,
+      int parameter_block_index,
+      int parameter_block_size,
       double **parameters,
       double *jacobian) {
     using Eigen::Map;
@@ -98,8 +100,14 @@ struct NumericDiff {
     using Eigen::RowMajor;
     using Eigen::ColMajor;
 
-    const int NUM_RESIDUALS =
+    const int num_residuals_internal =
         (kNumResiduals != ceres::DYNAMIC ? kNumResiduals : num_residuals);
+    const int parameter_block_index_internal =
+        (kParameterBlock != ceres::DYNAMIC ? kParameterBlock :
+                                             parameter_block_index);
+    const int parameter_block_size_internal =
+        (kParameterBlockSize != ceres::DYNAMIC ? kParameterBlockSize :
+                                                 parameter_block_size);
 
     typedef Matrix<double, kNumResiduals, 1> ResidualVector;
     typedef Matrix<double, kParameterBlockSize, 1> ParameterVector;
@@ -115,32 +123,28 @@ struct NumericDiff {
         JacobianMatrix;
 
     Map<JacobianMatrix> parameter_jacobian(jacobian,
-                                           NUM_RESIDUALS,
-                                           kParameterBlockSize);
+                                           num_residuals_internal,
+                                           parameter_block_size_internal);
 
     // Mutate 1 element at a time and then restore.
-    Map<ParameterVector> x_plus_delta(parameters[kParameterBlock],
-                                      kParameterBlockSize);
+    Map<ParameterVector> x_plus_delta(
+        parameters[parameter_block_index_internal],
+        parameter_block_size_internal);
     ParameterVector x(x_plus_delta);
     ParameterVector step_size = x.array().abs() * relative_step_size;
 
-    // To handle cases where a parameter is exactly zero, instead use
-    // the mean step_size for the other dimensions. If all the
-    // parameters are zero, there's no good answer. Take
-    // relative_step_size as a guess and hope for the best.
-    const double fallback_step_size =
-        (step_size.sum() == 0)
-        ? relative_step_size
-        : step_size.sum() / step_size.rows();
+    // It is not a good idea to make the step size arbitrarily
+    // small. This will lead to problems with round off and numerical
+    // instability when dividing by the step size. The general
+    // recommendation is to not go down below sqrt(epsilon).
+    const double min_step_size =
+        std::sqrt(std::numeric_limits<double>::epsilon());
 
     // For each parameter in the parameter block, use finite differences to
     // compute the derivative for that parameter.
-
-    ResidualVector residuals(NUM_RESIDUALS);
-    for (int j = 0; j < kParameterBlockSize; ++j) {
-      const double delta =
-          (step_size(j) == 0.0) ? fallback_step_size : step_size(j);
-
+    ResidualVector residuals(num_residuals_internal);
+    for (int j = 0; j < parameter_block_size_internal; ++j) {
+      const double delta = std::max(min_step_size, step_size(j));
       x_plus_delta(j) = x(j) + delta;
 
       if (!EvaluateImpl<CostFunctor, N0, N1, N2, N3, N4, N5, N6, N7, N8, N9>(
@@ -169,7 +173,8 @@ struct NumericDiff {
       } else {
         // Forward difference only; reuse existing residuals evaluation.
         parameter_jacobian.col(j) -=
-            Map<const ResidualVector>(residuals_at_eval_point, NUM_RESIDUALS);
+            Map<const ResidualVector>(residuals_at_eval_point,
+                                      num_residuals_internal);
       }
       x_plus_delta(j) = x(j);  // Restore x_plus_delta.
 
@@ -195,6 +200,8 @@ struct NumericDiff<CostFunctor, kMethod, kNumResiduals,
       double const* residuals_at_eval_point,
       const double relative_step_size,
       const int num_residuals,
+      const int parameter_block_index,
+      const int parameter_block_size,
       double **parameters,
       double *jacobian) {
     LOG(FATAL) << "Control should never reach here.";

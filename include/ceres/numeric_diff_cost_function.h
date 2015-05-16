@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
-// http://code.google.com/p/ceres-solver/
+// Copyright 2015 Google Inc. All rights reserved.
+// http://ceres-solver.org/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -250,25 +250,25 @@ class NumericDiffCostFunction
     if (N8) parameters_reference_copy[8] = parameters_reference_copy[7] + N7;
     if (N9) parameters_reference_copy[9] = parameters_reference_copy[8] + N8;
 
-#define COPY_PARAMETER_BLOCK(block)                                     \
+#define CERES_COPY_PARAMETER_BLOCK(block)                               \
   if (N ## block) memcpy(parameters_reference_copy[block],              \
                          parameters[block],                             \
                          sizeof(double) * N ## block);  // NOLINT
 
-    COPY_PARAMETER_BLOCK(0);
-    COPY_PARAMETER_BLOCK(1);
-    COPY_PARAMETER_BLOCK(2);
-    COPY_PARAMETER_BLOCK(3);
-    COPY_PARAMETER_BLOCK(4);
-    COPY_PARAMETER_BLOCK(5);
-    COPY_PARAMETER_BLOCK(6);
-    COPY_PARAMETER_BLOCK(7);
-    COPY_PARAMETER_BLOCK(8);
-    COPY_PARAMETER_BLOCK(9);
+    CERES_COPY_PARAMETER_BLOCK(0);
+    CERES_COPY_PARAMETER_BLOCK(1);
+    CERES_COPY_PARAMETER_BLOCK(2);
+    CERES_COPY_PARAMETER_BLOCK(3);
+    CERES_COPY_PARAMETER_BLOCK(4);
+    CERES_COPY_PARAMETER_BLOCK(5);
+    CERES_COPY_PARAMETER_BLOCK(6);
+    CERES_COPY_PARAMETER_BLOCK(7);
+    CERES_COPY_PARAMETER_BLOCK(8);
+    CERES_COPY_PARAMETER_BLOCK(9);
 
-#undef COPY_PARAMETER_BLOCK
+#undef CERES_COPY_PARAMETER_BLOCK
 
-#define EVALUATE_JACOBIAN_FOR_BLOCK(block)                              \
+#define CERES_EVALUATE_JACOBIAN_FOR_BLOCK(block)                        \
     if (N ## block && jacobians[block] != NULL) {                       \
       if (!NumericDiff<CostFunctor,                                     \
                        method,                                          \
@@ -282,24 +282,26 @@ class NumericDiffCostFunction
                           SizedCostFunction<kNumResiduals,              \
                            N0, N1, N2, N3, N4,                          \
                            N5, N6, N7, N8, N9>::num_residuals(),        \
+                           block,                                       \
+                           N ## block,                                  \
                            parameters_reference_copy.get(),             \
                            jacobians[block])) {                         \
         return false;                                                   \
       }                                                                 \
     }
 
-    EVALUATE_JACOBIAN_FOR_BLOCK(0);
-    EVALUATE_JACOBIAN_FOR_BLOCK(1);
-    EVALUATE_JACOBIAN_FOR_BLOCK(2);
-    EVALUATE_JACOBIAN_FOR_BLOCK(3);
-    EVALUATE_JACOBIAN_FOR_BLOCK(4);
-    EVALUATE_JACOBIAN_FOR_BLOCK(5);
-    EVALUATE_JACOBIAN_FOR_BLOCK(6);
-    EVALUATE_JACOBIAN_FOR_BLOCK(7);
-    EVALUATE_JACOBIAN_FOR_BLOCK(8);
-    EVALUATE_JACOBIAN_FOR_BLOCK(9);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(0);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(1);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(2);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(3);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(4);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(5);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(6);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(7);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(8);
+    CERES_EVALUATE_JACOBIAN_FOR_BLOCK(9);
 
-#undef EVALUATE_JACOBIAN_FOR_BLOCK
+#undef CERES_EVALUATE_JACOBIAN_FOR_BLOCK
 
     return true;
   }
