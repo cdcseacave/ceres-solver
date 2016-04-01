@@ -200,7 +200,7 @@ TEST(Polynomial, QuarticPolynomialWithTwoClustersOfCloseRootsWorks) {
 
 TEST(Polynomial, QuarticPolynomialWithTwoZeroRootsWorks) {
   const double roots[4] = { -42.42, 0.0, 0.0, 42.42 };
-  RunPolynomialTestRealRoots(roots, true, true, kEpsilonLoose);
+  RunPolynomialTestRealRoots(roots, true, true, 2 * kEpsilonLoose);
 }
 
 TEST(Polynomial, QuarticMonomialWorks) {

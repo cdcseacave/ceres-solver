@@ -164,6 +164,7 @@
 
 #include "Eigen/Core"
 #include "ceres/fpclassify.h"
+#include "ceres/internal/port.h"
 
 namespace ceres {
 
@@ -227,21 +228,23 @@ struct Jet {
   T a;
 
   // The infinitesimal part.
-  //
-  // Note the Eigen::DontAlign bit is needed here because this object
-  // gets allocated on the stack and as part of other arrays and
-  // structs. Forcing the right alignment there is the source of much
-  // pain and suffering. Even if that works, passing Jets around to
-  // functions by value has problems because the C++ ABI does not
-  // guarantee alignment for function arguments.
-  //
-  // Setting the DontAlign bit prevents Eigen from using SSE for the
-  // various operations on Jets. This is a small performance penalty
-  // since the AutoDiff code will still expose much of the code as
-  // statically sized loops to the compiler. But given the subtle
-  // issues that arise due to alignment, especially when dealing with
-  // multiple platforms, it seems to be a trade off worth making.
+
+  // We allocate Jets on the stack and other places they
+  // might not be aligned to 16-byte boundaries.  If we have C++11, we
+  // can specify their alignment anyway, and thus can safely enable
+  // vectorization on those matrices; in C++99, we are out of luck.  Figure out
+  // what case we're in and do the right thing.
+#ifndef CERES_USE_CXX11
+  // fall back to safe version:
   Eigen::Matrix<T, N, 1, Eigen::DontAlign> v;
+#else
+  static constexpr bool kShouldAlignMatrix =
+      16 <= ::ceres::port_constants::kMaxAlignBytes;
+  static constexpr int kAlignHint = kShouldAlignMatrix ?
+      Eigen::AutoAlign : Eigen::DontAlign;
+  static constexpr size_t kAlignment = kShouldAlignMatrix ? 16 : 1;
+  alignas(kAlignment) Eigen::Matrix<T, N, 1, kAlignHint> v;
+#endif
 };
 
 // Unary +
@@ -482,6 +485,41 @@ Jet<T, N> tanh(const Jet<T, N>& f) {
   return Jet<T, N>(tanh_a, tmp * f.v);
 }
 
+// Bessel functions of the first kind with integer order equal to 0, 1, n.
+inline double BesselJ0(double x) { return j0(x); }
+inline double BesselJ1(double x) { return j1(x); }
+inline double BesselJn(int n, double x) { return jn(n, x); }
+
+// For the formulae of the derivatives of the Bessel functions see the book:
+// Olver, Lozier, Boisvert, Clark, NIST Handbook of Mathematical Functions,
+// Cambridge University Press 2010.
+//
+// Formulae are also available at http://dlmf.nist.gov
+
+// See formula http://dlmf.nist.gov/10.6#E3
+// j0(a + h) ~= j0(a) - j1(a) h
+template <typename T, int N> inline
+Jet<T, N> BesselJ0(const Jet<T, N>& f) {
+  return Jet<T, N>(BesselJ0(f.a),
+                   -BesselJ1(f.a) * f.v);
+}
+
+// See formula http://dlmf.nist.gov/10.6#E1
+// j1(a + h) ~= j1(a) + 0.5 ( j0(a) - j2(a) ) h
+template <typename T, int N> inline
+Jet<T, N> BesselJ1(const Jet<T, N>& f) {
+  return Jet<T, N>(BesselJ1(f.a),
+                   T(0.5) * (BesselJ0(f.a) - BesselJn(2, f.a)) * f.v);
+}
+
+// See formula http://dlmf.nist.gov/10.6#E1
+// j_n(a + h) ~= j_n(a) + 0.5 ( j_{n-1}(a) - j_{n+1}(a) ) h
+template <typename T, int N> inline
+Jet<T, N> BesselJn(int n, const Jet<T, N>& f) {
+  return Jet<T, N>(BesselJn(n, f.a),
+                   T(0.5) * (BesselJn(n - 1, f.a) - BesselJn(n + 1, f.a)) * f.v);
+}
+
 // Jet Classification. It is not clear what the appropriate semantics are for
 // these classifications. This picks that IsFinite and isnormal are "all"
 // operations, i.e. all elements of the jet must be finite for the jet itself
@@ -708,7 +746,15 @@ template<typename T, int N> inline       Jet<T, N>  ei_pow (const Jet<T, N>& x, 
 // strange compile errors.
 template <typename T, int N>
 inline std::ostream &operator<<(std::ostream &s, const Jet<T, N>& z) {
-  return s << "[" << z.a << " ; " << z.v.transpose() << "]";
+  s << "[" << z.a << " ; ";
+  for (int i = 0; i < N; ++i) {
+    s << z.v[i];
+    if (i != N - 1) {
+      s << ", ";
+    }
+  }
+  s << "]";
+  return s;
 }
 
 }  // namespace ceres

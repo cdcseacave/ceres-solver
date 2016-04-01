@@ -364,10 +364,16 @@ the corresponding accessors. This information will be verified by the
   <http://en.wikipedia.org/wiki/Numerical_differentiation>`_ can be
   used.
 
+  .. NOTE ::
+
+    TODO(sameeragarwal): Add documentation for the constructor and for
+    NumericDiffOptions. Update DynamicNumericDiffOptions in a similar
+    manner.
+
     .. code-block:: c++
 
       template <typename CostFunctor,
-                NumericDiffMethod method = CENTRAL,
+                NumericDiffMethodType method = CENTRAL,
                 int kNumResiduals,  // Number of residuals, or ceres::DYNAMIC.
                 int N0,       // Number of parameters in block 0.
                 int N1 = 0,   // Number of parameters in block 1.
@@ -481,10 +487,30 @@ the corresponding accessors. This information will be verified by the
    independent variables, and there is no limit on the dimensionality
    of each of them.
 
-   The ``CENTRAL`` difference method is considerably more accurate at
+   There are three available numeric differentiation schemes in ceres-solver:
+
+   The ``FORWARD`` difference method, which approximates :math:`f'(x)`
+   by computing :math:`\frac{f(x+h)-f(x)}{h}`, computes the cost function
+   one additional time at :math:`x+h`. It is the fastest but least accurate
+   method.
+
+   The ``CENTRAL`` difference method is more accurate at
    the cost of twice as many function evaluations than forward
-   difference. Consider using central differences begin with, and only
-   after that works, trying forward difference to improve performance.
+   difference, estimating :math:`f'(x)` by computing
+   :math:`\frac{f(x+h)-f(x-h)}{2h}`.
+
+   The ``RIDDERS`` difference method[Ridders]_ is an adaptive scheme that
+   estimates derivatives by performing multiple central differences
+   at varying scales. Specifically, the algorithm starts at a certain
+   :math:`h` and as the derivative is estimated, this step size decreases.
+   To conserve function evaluations and estimate the derivative error, the
+   method performs Richardson extrapolations between the tested step sizes.
+   The algorithm exhibits considerably higher accuracy, but does so by
+   additional evaluations of the cost function.
+
+   Consider using ``CENTRAL`` differences to begin with. Based on the
+   results, either try forward difference to improve performance or
+   Ridders' method to improve accuracy.
 
    **WARNING** A common beginner's error when first using
    NumericDiffCostFunction is to get the sizing wrong. In particular,
@@ -530,7 +556,7 @@ Numeric Differentiation & LocalParameterization
 
    **Alternate Interface**
 
-   For a variety of reason, including compatibility with legacy code,
+   For a variety of reasons, including compatibility with legacy code,
    :class:`NumericDiffCostFunction` can also take
    :class:`CostFunction` objects as input. The following describes
    how.
@@ -571,7 +597,7 @@ Numeric Differentiation & LocalParameterization
 
      .. code-block:: c++
 
-      template <typename CostFunctor, NumericDiffMethod method = CENTRAL>
+      template <typename CostFunctor, NumericDiffMethodType method = CENTRAL>
       class DynamicNumericDiffCostFunction : public CostFunction {
       };
 
@@ -677,7 +703,7 @@ Numeric Differentiation & LocalParameterization
       CostFunctionToFunctor<2,5,3> intrinsic_projection_;
     };
 
-   Note that :class:`CostFunctionToFunctor` takes ownership of the 
+   Note that :class:`CostFunctionToFunctor` takes ownership of the
    :class:`CostFunction` that was passed in to the constructor.
 
    In the above example, we assumed that ``IntrinsicProjection`` is a
@@ -1271,6 +1297,31 @@ Instances
    vector.
 
 
+.. class:: ProductParameterization
+
+   Consider an optimization problem over the space of rigid
+   transformations :math:`SE(3)`, which is the Cartesian product of
+   :math:`SO(3)` and :math:`\mathbb{R}^3`. Suppose you are using
+   Quaternions to represent the rotation, Ceres ships with a local
+   parameterization for that and :math:`\mathbb{R}^3` requires no, or
+   :class:`IdentityParameterization` parameterization. So how do we
+   construct a local parameterization for a parameter block a rigid
+   transformation?
+
+   In cases, where a parameter block is the Cartesian product of a
+   number of manifolds and you have the local parameterization of the
+   individual manifolds available, :class:`ProductParameterization`
+   can be used to construct a local parameterization of the cartesian
+   product. For the case of the rigid transformation, where say you
+   have a parameter block of size 7, where the first four entries
+   represent the rotation as a quaternion, a local parameterization
+   can be constructed as
+
+   .. code-block:: c++
+
+     ProductParameterization se3_param(new QuaternionParameterization(),
+                                       new IdentityTransformation(3));
+
 
 :class:`AutoDiffLocalParameterization`
 ======================================
@@ -1821,75 +1872,70 @@ Pascal Getreuer.
 
 .. class:: CubicInterpolator
 
-Given as input a one dimensional array like object, which provides
-the following interface.
+Given as input an infinite one dimensional grid, which provides the
+following interface.
 
 .. code::
 
-  struct Array {
+  struct Grid1D {
     enum { DATA_DIMENSION = 2; };
     void GetValue(int n, double* f) const;
-    int NumValues() const;
   };
 
 Where, ``GetValue`` gives us the value of a function :math:`f`
-(possibly vector valued) on the integers :code:`{0, ..., NumValues() -
-1}` and the enum ``DATA_DIMENSION`` indicates the dimensionality of
-the function being interpolated. For example if you are interpolating
-a color image with three channels (Red, Green & Blue), then
-``DATA_DIMENSION = 3``.
+(possibly vector valued) for any integer :math:`n` and the enum
+``DATA_DIMENSION`` indicates the dimensionality of the function being
+interpolated. For example if you are interpolating rotations in
+axis-angle format over time, then ``DATA_DIMENSION = 3``.
 
 :class:`CubicInterpolator` uses Cubic Hermite splines to produce a
 smooth approximation to it that can be used to evaluate the
-:math:`f(x)` and :math:`f'(x)` at any real valued point in the
-interval :code:`[0, NumValues() - 1]`. For example, the following code
-interpolates an array of four numbers.
+:math:`f(x)` and :math:`f'(x)` at any point on the real number
+line. For example, the following code interpolates an array of four
+numbers.
 
 .. code::
 
   const double data[] = {1.0, 2.0, 5.0, 6.0};
-  Array1D<double, 1> array(x, 4);
+  Grid1D<double, 1> array(x, 0, 4);
   CubicInterpolator interpolator(array);
   double f, dfdx;
-  CHECK(interpolator.Evaluate(1.5, &f, &dfdx));
+  interpolator.Evaluate(1.5, &f, &dfdx);
 
 
-In the above code we use ``Array1D`` a templated helper class that
+In the above code we use ``Grid1D`` a templated helper class that
 allows easy interfacing between ``C++`` arrays and
 :class:`CubicInterpolator`.
 
-``Array1D`` supports vector valued functions where the various
+``Grid1D`` supports vector valued functions where the various
 coordinates of the function can be interleaved or stacked. It also
 allows the use of any numeric type as input, as long as it can be
 safely cast to a double.
 
 .. class:: BiCubicInterpolator
 
-Given as input a two dimensional array like object, which provides
-the following interface:
+Given as input an infinite two dimensional grid, which provides the
+following interface:
 
 .. code::
 
-  struct Array {
-    enum { DATA_DIMENSION = 1 };
+  struct Grid2D {
+    enum { DATA_DIMENSION = 2 };
     void GetValue(int row, int col, double* f) const;
-    int NumRows() const;
-    int NumCols() const;
   };
 
 Where, ``GetValue`` gives us the value of a function :math:`f`
-(possibly vector valued) on the integer grid :code:`{0, ...,
-NumRows() - 1} x {0, ..., NumCols() - 1}` and the enum
-``DATA_DIMENSION`` indicates the dimensionality of the function being
-interpolated. For example if you are interpolating a color image with
-three channels (Red, Green & Blue), then ``DATA_DIMENSION = 3``.
+(possibly vector valued) for any pair of integers :code:`row` and
+:code:`col` and the enum ``DATA_DIMENSION`` indicates the
+dimensionality of the function being interpolated. For example if you
+are interpolating a color image with three channels (Red, Green &
+Blue), then ``DATA_DIMENSION = 3``.
 
 :class:`BiCubicInterpolator` uses the cubic convolution interpolation
 algorithm of R. Keys [Keys]_, to produce a smooth approximation to it
 that can be used to evaluate the :math:`f(r,c)`, :math:`\frac{\partial
 f(r,c)}{\partial r}` and :math:`\frac{\partial f(r,c)}{\partial c}` at
-any real valued point in the quad :code:`[0, NumRows() - 1] x [0,
-NumCols() - 1]`.
+any any point in the real plane.
 
 For example the following code interpolates a two dimensional array.
 
@@ -1898,16 +1944,16 @@ For example the following code interpolates a two dimensional array.
    const double data[] = {1.0, 3.0, -1.0, 4.0,
                           3.6, 2.1,  4.2, 2.0,
                           2.0, 1.0,  3.1, 5.2};
-   Array2D<double, 1>  array(data, 3, 4);
+   Grid2D<double, 1>  array(data, 0, 3, 0, 4);
    BiCubicInterpolator interpolator(array);
    double f, dfdr, dfdc;
-   CHECK(interpolator.Evaluate(1.2, 2.5, &f, &dfdr, &dfdc));
+   interpolator.Evaluate(1.2, 2.5, &f, &dfdr, &dfdc);
 
-In the above code, the templated helper class ``Array2D`` is used to
+In the above code, the templated helper class ``Grid2D`` is used to
 make a ``C++`` array look like a two dimensional table to
 :class:`BiCubicInterpolator`.
 
-``Array2D`` supports row or column major layouts. It also supports
+``Grid2D`` supports row or column major layouts. It also supports
 vector valued functions where the individual coordinates of the
 function may be interleaved or stacked. It also allows the use of any
 numeric type as input, as long as it can be safely cast to double.

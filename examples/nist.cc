@@ -65,7 +65,7 @@
 // solver had the highest LRE.
 
 // In this file, we implement the same evaluation methodology using
-// Ceres. Currently using Levenberg-Marquard with DENSE_QR, we get
+// Ceres. Currently using Levenberg-Marquardt with DENSE_QR, we get
 //
 //               Excel  Gnuplot  GaussFit  HBN  MinPack  Ceres
 // Average LRE     2.3      4.3       4.0  6.8      4.4    9.4
@@ -115,6 +115,16 @@ DEFINE_int32(num_iterations, 10000, "Number of iterations");
 DEFINE_bool(nonmonotonic_steps, false, "Trust region algorithm can use"
             " nonmonotic steps");
 DEFINE_double(initial_trust_region_radius, 1e4, "Initial trust region radius");
+DEFINE_bool(use_numeric_diff, false,
+            "Use numeric differentiation instead of automatic "
+            "differentiation.");
+DEFINE_string(numeric_diff_method, "ridders", "When using numeric "
+              "differentiation, selects algorithm. Options are: central, "
+              "forward, ridders.");
+DEFINE_double(ridders_step_size, 1e-9, "Initial step size for Ridders "
+              "numeric differentiation.");
+DEFINE_int32(ridders_extrapolations, 3, "Maximal number of Ridders "
+             "extrapolations.");
 
 namespace ceres {
 namespace examples {
@@ -235,7 +245,7 @@ class NISTProblem {
     }
   }
 
-  Matrix initial_parameters(int start) const { return initial_parameters_.row(start); }
+  Matrix initial_parameters(int start) const { return initial_parameters_.row(start); }  // NOLINT
   Matrix final_parameters() const  { return final_parameters_; }
   Matrix predictor()        const { return predictor_;         }
   Matrix response()         const { return response_;          }
@@ -294,7 +304,7 @@ NIST_END
 NIST_BEGIN(Gauss)
   b[0] * exp(-b[1] * x) +
   b[2] * exp(-pow((x - b[3])/b[4], 2)) +
-  b[5] * exp(-pow((x - b[6])/b[7],2))
+  b[5] * exp(-pow((x - b[6])/b[7], 2))
 NIST_END
 
 // y = b1*exp(-b2*x) + b3*exp(-b4*x) + b5*exp(-b6*x)  +  e
@@ -338,7 +348,7 @@ NIST_END
 
 // y = b1 * (1-(1+b2*x/2)**(-2))  +  e
 NIST_BEGIN(Misra1b)
-  b[0] * (T(1.0) - T(1.0)/ ((T(1.0) + b[1] * x / 2.0) * (T(1.0) + b[1] * x / 2.0)))
+  b[0] * (T(1.0) - T(1.0)/ ((T(1.0) + b[1] * x / 2.0) * (T(1.0) + b[1] * x / 2.0)))  // NOLINT
 NIST_END
 
 // y = b1 * (1-(1+2*b2*x)**(-.5))  +  e
@@ -410,6 +420,11 @@ struct Nelson {
   double y_;
 };
 
+static void SetNumericDiffOptions(ceres::NumericDiffOptions* options) {
+  options->max_num_ridders_extrapolations = FLAGS_ridders_extrapolations;
+  options->ridders_relative_initial_step_size = FLAGS_ridders_step_size;
+}
+
 template <typename Model, int num_residuals, int num_parameters>
 int RegressionDriver(const string& filename,
                      const ceres::Solver::Options& options) {
@@ -431,12 +446,45 @@ int RegressionDriver(const string& filename,
 
     ceres::Problem problem;
     for (int i = 0; i < nist_problem.num_observations(); ++i) {
-      problem.AddResidualBlock(
-          new ceres::AutoDiffCostFunction<Model, num_residuals, num_parameters>(
-              new Model(predictor.data() + nist_problem.predictor_size() * i,
-                        response.data() + nist_problem.response_size() * i)),
-          NULL,
-          initial_parameters.data());
+      Model* model = new Model(
+          predictor.data() + nist_problem.predictor_size() * i,
+          response.data() + nist_problem.response_size() * i);
+      ceres::CostFunction* cost_function = NULL;
+      if (FLAGS_use_numeric_diff) {
+        ceres::NumericDiffOptions options;
+        SetNumericDiffOptions(&options);
+        if (FLAGS_numeric_diff_method == "central") {
+          cost_function = new NumericDiffCostFunction<Model,
+                                                      ceres::CENTRAL,
+                                                      num_residuals,
+                                                      num_parameters>(
+              model, ceres::TAKE_OWNERSHIP, num_residuals, options);
+        } else if (FLAGS_numeric_diff_method == "forward") {
+          cost_function = new NumericDiffCostFunction<Model,
+                                                      ceres::FORWARD,
+                                                      num_residuals,
+                                                      num_parameters>(
+              model, ceres::TAKE_OWNERSHIP, num_residuals, options);
+        } else if (FLAGS_numeric_diff_method == "ridders") {
+          cost_function = new NumericDiffCostFunction<Model,
+                                                      ceres::RIDDERS,
+                                                      num_residuals,
+                                                      num_parameters>(
+              model, ceres::TAKE_OWNERSHIP, num_residuals, options);
+        } else {
+          LOG(ERROR) << "Invalid numeric diff method specified";
+          return 0;
+        }
+      } else {
+         cost_function =
+             new ceres::AutoDiffCostFunction<Model,
+                                             num_residuals,
+                                             num_parameters>(model);
+      }
+
+      problem.AddResidualBlock(cost_function,
+                               NULL,
+                               initial_parameters.data());
     }
 
     ceres::Solver::Summary summary;
@@ -462,7 +510,7 @@ int RegressionDriver(const string& filename,
     }
 
     const int kMinNumMatchingDigits = 4;
-    if (log_relative_error >= kMinNumMatchingDigits) {
+    if (log_relative_error > kMinNumMatchingDigits) {
       ++num_success;
     }
 
@@ -512,9 +560,9 @@ void SetMinimizerOptions(ceres::Solver::Options* options) {
       FLAGS_max_line_search_restarts;
   options->use_approximate_eigenvalue_bfgs_scaling =
       FLAGS_approximate_eigenvalue_bfgs_scaling;
-  options->function_tolerance = 1e-18;
-  options->gradient_tolerance = 1e-18;
-  options->parameter_tolerance = 1e-18;
+  options->function_tolerance = std::numeric_limits<double>::epsilon();
+  options->gradient_tolerance = std::numeric_limits<double>::epsilon();
+  options->parameter_tolerance = std::numeric_limits<double>::epsilon();
 }
 
 void SolveNISTProblems() {
@@ -566,7 +614,8 @@ void SolveNISTProblems() {
   cout << "Easy    : " << easy_success << "/16\n";
   cout << "Medium  : " << medium_success << "/22\n";
   cout << "Hard    : " << hard_success << "/16\n";
-  cout << "Total   : " << easy_success + medium_success + hard_success << "/54\n";
+  cout << "Total   : "
+       << easy_success + medium_success + hard_success << "/54\n";
 }
 
 }  // namespace examples
@@ -577,4 +626,4 @@ int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
   ceres::examples::SolveNISTProblems();
   return 0;
-};
+}

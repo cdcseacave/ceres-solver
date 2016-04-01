@@ -5,6 +5,9 @@
 # - This file can be run multiple times, therefore it shouldn't
 #   have any side effects other than defining the functions and macros.
 
+INCLUDE(CheckCXXCompilerFlag)
+INCLUDE(CheckIncludeFile)
+
 # BUILD_SHARED_LIBS is a standard CMake variable, but we declare it here to
 # make it prominent in the GUI.
 OPTION(BUILD_SHARED_LIBS "Build shared libraries (DLLs)" OFF)
@@ -12,7 +15,7 @@ OPTION(BUILD_EXCEPTIONS_ENABLED "Enable support for exceptions" ON)
 OPTION(BUILD_RTTI_ENABLED "Enable support run-time type information" ON)
 OPTION(BUILD_STATIC_RUNTIME "Link staticaly the run-time library" ON)
 OPTION(CMAKE_SUPPRESS_REGENERATION "This will cause CMake to not put in the rules that re-run CMake. This might be useful if you want to use the generated build files on another machine" OFF)
-OPTION(CMAKE_USE_RELATIVE_PATHS "Try to use relative paths in generated projects" ON)
+OPTION(CMAKE_USE_RELATIVE_PATHS "Try to use relative paths in generated projects" OFF)
 
 # Organize projects into folders
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -67,23 +70,23 @@ macro(GetOperatingSystemArchitectureBitness)
 		set(MSVC64 1)
 	endif()
 
-	if(NOT APPLE)
-	  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		set(CMAKE_COMPILER_IS_GNUCXX 1)
-		set(ENABLE_PRECOMPILED_HEADERS OFF CACHE BOOL "" FORCE)
-	  endif()
-	  if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
-		set(CMAKE_COMPILER_IS_GNUCC 1)
-		set(ENABLE_PRECOMPILED_HEADERS OFF CACHE BOOL "" FORCE)
-	  endif()
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		set(CLANG 1)
+		if(NOT APPLE)
+			set(CMAKE_COMPILER_IS_GNUCXX 1)
+		endif()
+	endif()
+	if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+		set(CLANG 1)
+		if(NOT APPLE)
+			set(CMAKE_COMPILER_IS_GNUCC 1)
+		endif()
 	endif()
 
 	# Detect Intel ICC compiler -- for -fPIC in 3rdparty ( UNIX ONLY ):
-	#  see  include/opencv/cxtypes.h file for related   ICC & FLG_ICC defines.
-	# NOTE: The system needs to determine if the '-fPIC' option needs to be added
-	#  for the 3rdparty static libs being compiled.  The CMakeLists.txt files
-	#  in 3rdparty use the FLG_ICC definition being set here to determine if
-	#  the -fPIC flag should be used.
+	#  the system needs to determine if the '-fPIC' option needs to be added
+	#  for the 3rdparty static libs being compiled; use the FLG_ICC definition
+	#  being set here to determine if the -fPIC flag should be used
 	if(UNIX)
 		if  (__ICL)
 			set(FLG_ICC   __ICL)
@@ -166,7 +169,9 @@ macro(ComposePackageLibSuffix)
 	set(PACKAGE_LIB_SUFFIX_DBG "")
 	set(PACKAGE_LIB_SUFFIX_REL "")
 	if(MSVC)
-		if("${MSVC_VERSION}" STREQUAL "1800")
+		if("${MSVC_VERSION}" STREQUAL "1900")
+			set(PACKAGE_LIB_SUFFIX "/vc14")
+		elseif("${MSVC_VERSION}" STREQUAL "1800")
 			set(PACKAGE_LIB_SUFFIX "/vc12")
 		elseif("${MSVC_VERSION}" STREQUAL "1700")
 			set(PACKAGE_LIB_SUFFIX "/vc11")
@@ -259,14 +264,14 @@ macro(add_option variable description value)
 endmacro()
 
 
-# Set as Pre-Compiled Header the given file name
-# currently working only for Visual Studio
-macro(set_target_pch TRGT NAME)
-	if(ENABLE_PRECOMPILED_HEADERS)
-		if(MSVC)
-			SET_TARGET_PROPERTIES("${TRGT}" PROPERTIES COMPILE_FLAGS "/Yu${NAME}.h")
-			SET_SOURCE_FILES_PROPERTIES("${NAME}.cpp" PROPERTIES COMPILE_FLAGS "/Yc${NAME}.h")
-		endif(MSVC)
+# Set as Pre-Compiled Header automaticaly or to the given file name
+macro(set_target_pch TRGT)
+	if(ENABLE_PRECOMPILED_HEADERS AND COMMAND cotire)
+		if(NOT ${ARGN} STREQUAL "")
+			set_target_properties("${TRGT}" PROPERTIES COTIRE_CXX_PREFIX_HEADER_INIT "${ARGN}")
+		endif()
+		set_target_properties("${TRGT}" PROPERTIES COTIRE_ADD_UNITY_BUILD FALSE)
+		cotire("${TRGT}")
 	endif()
 endmacro()
 
@@ -368,7 +373,7 @@ macro(add_extra_compiler_option option)
 endmacro()
 
 macro(optimize_default_compiler_settings)
-	# OpenCV build options
+	# build options
 	# ===================================================
 	add_option(ENABLE_PRECOMPILED_HEADERS "Use precompiled headers"                                  ON   IF (NOT IOS) )
 	add_option(ENABLE_PROFILING           "Enable profiling in the GCC compiler (Add flags: -g -pg)" OFF  IF CMAKE_COMPILER_IS_GNUCXX )
@@ -377,10 +382,12 @@ macro(optimize_default_compiler_settings)
 	add_option(ENABLE_FAST_MATH           "Enable -ffast-math (not recommended for GCC 4.6.x)"       OFF  IF (CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
 	add_option(ENABLE_SSE                 "Enable SSE instructions"                                  ON   IF (MSVC OR CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
 	add_option(ENABLE_SSE2                "Enable SSE2 instructions"                                 ON   IF (MSVC OR CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
-	add_option(ENABLE_SSE3                "Enable SSE3 instructions"                                 OFF  IF (FLG_ICC OR CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
-	add_option(ENABLE_SSSE3               "Enable SSSE3 instructions"                                OFF  IF (CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
-	add_option(ENABLE_SSE41               "Enable SSE4.1 instructions"                               OFF  IF (FLG_ICC OR CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
-	add_option(ENABLE_SSE42               "Enable SSE4.2 instructions"                               OFF  IF (CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
+	add_option(ENABLE_SSE3                "Enable SSE3 instructions"                                 ON   IF (MSVC OR FLG_ICC OR CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
+	add_option(ENABLE_SSSE3               "Enable SSSE3 instructions"                                ON   IF (CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
+	add_option(ENABLE_SSE41               "Enable SSE4.1 instructions"                               ON   IF (FLG_ICC OR CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
+	add_option(ENABLE_SSE42               "Enable SSE4.2 instructions"                               ON   IF (CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
+	add_option(ENABLE_AVX                 "Enable AVX instructions"                                  OFF )
+	add_option(ENABLE_AVX2                "Enable AVX2 instructions"                                 OFF  IF (CMAKE_COMPILER_IS_GNUCXX AND (X86 OR X86_64)) )
 	add_option(ENABLE_EXTRA_WARNINGS      "Show extra warnings (usually not critical)"               OFF )
 	add_option(ENABLE_NOISY_WARNINGS      "Show all warnings even if they are too noisy"             OFF )
 	add_option(ENABLE_WARNINGS_AS_ERRORS  "Treat warnings as errors"                                 OFF )
@@ -409,6 +416,19 @@ macro(optimize_default_compiler_settings)
 	set(BUILD_EXTRA_EXE_LINKER_FLAGS_RELEASE "")
 	set(BUILD_EXTRA_EXE_LINKER_FLAGS_DEBUG "")
 
+	# try to enable C++11 support
+	check_cxx_compiler_flag("-std=c++11" COMPILER_HAS_CXX11_FLAG)
+	if (COMPILER_HAS_CXX11_FLAG)
+		# update CMAKE_REQUIRED_FLAGS used by CheckCXXSourceCompiles
+		# to include -std=c++11
+		set(CMAKE_REQUIRED_FLAGS -std=c++11)
+		add_extra_compiler_option(-std=c++11)
+		if(CLANG)
+			add_extra_compiler_option(-stdlib=libc++)
+			set(CMAKE_EXE_LINKER_FLAGS "-stdlib=libc++")
+		endif()
+	endif()
+
 	if(MINGW)
 	  # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=40838
 	  # here we are trying to workaround the problem
@@ -422,31 +442,41 @@ macro(optimize_default_compiler_settings)
 	  # High level of warnings.
 	  add_extra_compiler_option(-W)
 	  add_extra_compiler_option(-Wall)
-	  add_extra_compiler_option(-Werror=return-type)
-	  add_extra_compiler_option(-Werror=non-virtual-dtor)
+	  #add_extra_compiler_option(-Werror=return-type)
+	  #add_extra_compiler_option(-Werror=non-virtual-dtor)
 	  add_extra_compiler_option(-Werror=address)
 	  add_extra_compiler_option(-Werror=sequence-point)
 	  add_extra_compiler_option(-Wformat)
 	  add_extra_compiler_option(-Werror=format-security -Wformat)
-	  add_extra_compiler_option(-Wmissing-declarations)
-	  add_extra_compiler_option(-Wmissing-prototypes)
 	  add_extra_compiler_option(-Wstrict-prototypes)
-	  add_extra_compiler_option(-Wundef)
 	  add_extra_compiler_option(-Winit-self)
-	  add_extra_compiler_option(-Wpointer-arith)
-	  add_extra_compiler_option(-Wshadow)
 	  add_extra_compiler_option(-Wsign-promo)
 
 	  if(ENABLE_NOISY_WARNINGS)
+		add_extra_compiler_option(-Wshadow)
+		add_extra_compiler_option(-Wextra)
 		add_extra_compiler_option(-Wcast-align)
 		add_extra_compiler_option(-Wstrict-aliasing=2)
+		add_extra_compiler_option(-Wmissing-declarations)
+		add_extra_compiler_option(-Wmissing-prototypes)
+		add_extra_compiler_option(-Wpointer-arith)
+		add_extra_compiler_option(-Wundef)
 	  else()
+	  	add_extra_compiler_option(-Wno-undef)
+		add_extra_compiler_option(-Wno-comment)
 		add_extra_compiler_option(-Wno-narrowing)
+		add_extra_compiler_option(-Wno-attributes)
+		add_extra_compiler_option(-Wno-enum-compare)
+		add_extra_compiler_option(-Wno-missing-declarations)
+		add_extra_compiler_option(-Wno-missing-prototypes)
+		add_extra_compiler_option(-Wno-missing-field-initializers)
+		add_extra_compiler_option(-Wno-unused-local-typedefs)
 		add_extra_compiler_option(-Wno-delete-non-virtual-dtor)
 		add_extra_compiler_option(-Wno-unnamed-type-template-args)
 	  endif()
 	  add_extra_compiler_option(-fdiagnostics-show-option)
-
+	  add_extra_compiler_option(-ftemplate-backtrace-limit=0)
+	  
 	  # The -Wno-long-long is required in 64bit systems when including sytem headers.
 	  if(X86_64)
 		add_extra_compiler_option(-Wno-long-long)
@@ -473,6 +503,8 @@ macro(optimize_default_compiler_settings)
 	  endif()
 	  if(ENABLE_FAST_MATH)
 		add_extra_compiler_option(-ffast-math)
+	  else()
+		add_extra_compiler_option(-frounding-math)
 	  endif()
 	  if(ENABLE_POWERPC)
 		add_extra_compiler_option("-mcpu=G3 -mtune=G5")
@@ -490,10 +522,10 @@ macro(optimize_default_compiler_settings)
 		  add_extra_compiler_option(-msse3)
 		endif()
 
-		if(${CMAKE_FLG_GCC_VERSION_NUM} GREATER 402)
+		if(${CMAKE_FLG_GCC_VERSION_NUM} GREATER 402 OR CLANG)
 		  set(HAVE_GCC43_OR_NEWER 1)
 		endif()
-		if(${CMAKE_FLG_GCC_VERSION_NUM} GREATER 401)
+		if(${CMAKE_FLG_GCC_VERSION_NUM} GREATER 401 OR CLANG)
 		  set(HAVE_GCC42_OR_NEWER 1)
 		endif()
 
@@ -507,6 +539,12 @@ macro(optimize_default_compiler_settings)
 			endif()
 			if(ENABLE_SSE42)
 			   add_extra_compiler_option(-msse4.2)
+			endif()
+			if(ENABLE_AVX)
+			   add_extra_compiler_option(-mavx)
+			endif()
+			if(ENABLE_AVX2)
+			   add_extra_compiler_option(-mavx2)
 			endif()
 		  endif()
 		endif()
@@ -579,6 +617,9 @@ macro(optimize_default_compiler_settings)
 	  if(ENABLE_SSE4_1)
 		set(BUILD_EXTRA_FLAGS "${BUILD_EXTRA_FLAGS} /arch:SSE4.1")
 	  endif()
+	  if(ENABLE_AVX)
+		set(BUILD_EXTRA_FLAGS "${BUILD_EXTRA_FLAGS} /arch:AVX")
+	  endif()
 
 	  if(ENABLE_SSE OR ENABLE_SSE2 OR ENABLE_SSE3 OR ENABLE_SSE4_1)
 		set(BUILD_EXTRA_FLAGS "${BUILD_EXTRA_FLAGS} /Oi")
@@ -589,6 +630,9 @@ macro(optimize_default_compiler_settings)
 		  set(BUILD_EXTRA_FLAGS "${BUILD_EXTRA_FLAGS} /fp:fast")# !! important - be on the same wave with x64 compilers
 		endif()
 	  endif()
+
+	  # fix virtual memory range for PCH exceeded error
+	  set(BUILD_EXTRA_FLAGS "${BUILD_EXTRA_FLAGS} /Zm150")
 	endif()
 
 	# Extra link libs if the user selects building static libs:
@@ -629,14 +673,21 @@ macro(optimize_default_compiler_settings)
 		  string(REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 	  endif()
 
-	  if(NOT ENABLE_NOISY_WARNINGS AND MSVC_VERSION EQUAL 1400)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4510 /wd4610 /wd4312 /wd4201 /wd4244 /wd4328 /wd4267")
+	  if(NOT ENABLE_NOISY_WARNINGS AND MSVC_VERSION GREATER 1300)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4231") # disable warnings on extern before template instantiation
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4251") # disable warnings on needs to have dll-interface to be used by clients of class ...
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4308") # for negative integral constant converted to unsigned type
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4396") # for ignored inlines
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4503") # for decorated name length exceeded, name was truncated
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4661") # disable warnings on no suitable definition provided for explicit template instantiation request
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4996") # for deprecated functions
 	  endif()
 
 	  foreach(flags CMAKE_C_FLAGS CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELEASE CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG)
 		string(REPLACE "/Zm1000" "" ${flags} "${${flags}}")
 	  endforeach()
 	endif()
+	CHECK_INCLUDE_FILE("inttypes.h" HAVE_INTTYPES_H)
 endmacro()
 
 
@@ -689,7 +740,7 @@ macro(ConfigCompilerAndLinker)
     set(cxx_no_exception_flags "-D_HAS_EXCEPTIONS=0")
     set(cxx_no_rtti_flags "-GR-")
   elseif (CMAKE_COMPILER_IS_GNUCXX)
-    set(cxx_base_flags "-Wall -Wshadow")
+    set(cxx_base_flags "-Wall")
     set(cxx_exception_flags "-fexceptions")
     set(cxx_no_exception_flags "-fno-exceptions")
     # Until version 4.3.2, GCC doesn't define a macro to indicate
@@ -721,17 +772,20 @@ macro(ConfigCompilerAndLinker)
 
   if (BUILD_EXCEPTIONS_ENABLED)
     set(cxx_exception_support "${CMAKE_CXX_FLAGS} ${cxx_base_flags} ${cxx_exception_flags}")
+    set(_HAS_EXCEPTIONS TRUE)
   else()
     set(cxx_exception_support "${CMAKE_CXX_FLAGS} ${cxx_base_flags} ${cxx_no_exception_flags}")
   endif()
 
   if (BUILD_RTTI_ENABLED)
     set(cxx_rtti_support "")
+    set(_HAS_RTTI TRUE)
   else()
     set(cxx_rtti_support "${cxx_no_rtti_flags}")
   endif()
   
-  SET(cxx_default "${cxx_exception_support} ${cxx_rtti_support}" CACHE PATH "Common compile flags")
+  SET(cxx_default "${cxx_exception_support} ${cxx_rtti_support}" CACHE PATH "Common compile CXX flags")
+  SET(c_default "${CMAKE_C_FLAGS} ${cxx_base_flags}" CACHE PATH "Common compile C flags")
 endmacro()
 
 # Defines the main libraries.  User tests should link
@@ -753,10 +807,7 @@ endfunction()
 function(cxx_library_with_type name folder type cxx_flags)
   cxx_library_with_type_no_pch("${name}" "${folder}" "${type}" "${cxx_flags}" ${ARGN})
   # Generate precompiled headers
-  set_target_properties("${name}" PROPERTIES COTIRE_ADD_UNITY_BUILD FALSE)
-  if(ENABLE_PRECOMPILED_HEADERS)
-    cotire("${name}")
-  endif()
+  set_target_pch("${name}")
 endfunction()
 
 ########################################################################
@@ -792,10 +843,7 @@ endfunction()
 function(cxx_executable_with_flags name folder cxx_flags libs)
   cxx_executable_with_flags_no_pch("${name}" "${folder}" "${cxx_flags}" "${libs}" ${ARGN})
   # Generate precompiled headers
-  set_target_properties("${name}" PROPERTIES COTIRE_ADD_UNITY_BUILD FALSE)
-  if(ENABLE_PRECOMPILED_HEADERS)
-    cotire("${name}")
-  endif()
+  set_target_pch("${name}")
 endfunction()
 
 # cxx_executable(name dir lib srcs...)
