@@ -460,11 +460,10 @@ include_directories(
   internal/ceres
   ${GLOG_INCLUDE_DIRS})
 # Eigen SparseQR generates various compiler warnings related to unused and
-# uninitialised local variables, which prevents Ceres compilation as we use
-# -Werror.  To avoid having to individually suppress these warnings around
-# the #include statments for Eigen headers across all GCC/Clang versions, we
-# tell CMake to treat Eigen headers as system headers.  This results in all
-# compiler warnings from them being suppressed.
+# uninitialised local variables.  To avoid having to individually suppress these
+# warnings around the #include statments for Eigen headers across all GCC/Clang
+# versions, we tell CMake to treat Eigen headers as system headers.  This
+# results in all compiler warnings from them being suppressed.
 #
 # Note that this is *not* propagated to clients, ie CERES_INCLUDE_DIRS
 # used by clients after find_package(Ceres) does not identify Eigen as
@@ -612,7 +611,7 @@ endif (MSVC)
 if (UNIX)
   # GCC is not strict enough by default, so enable most of the warnings.
   set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -Werror=all -Werror=extra -Wno-unknown-pragmas -Wno-sign-compare -Wno-unused-parameter -Wno-missing-field-initializers")
+    "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas -Wno-sign-compare -Wno-unused-parameter -Wno-missing-field-initializers")
 endif (UNIX)
 
 # Use a larger inlining threshold for Clang, since it hobbles Eigen,
@@ -732,6 +731,12 @@ endif (MINIGLOG)
 # NOTE: If Ceres is both exported and installed, provided that the installation
 #       path is present in CMAKE_MODULE_PATH when find_package(Ceres) is called,
 #       the installed version is preferred.
+
+# Build the list of Ceres components for CeresConfig.cmake from the current set
+# of compile options.
+include(CeresCompileOptionsToComponents)
+ceres_compile_options_to_components("${CERES_COMPILE_OPTIONS}"
+  CERES_COMPILED_COMPONENTS)
 
 # Create a CeresConfigVersion.cmake file containing the version information,
 # used by both export() & install().

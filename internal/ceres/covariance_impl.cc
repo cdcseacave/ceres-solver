@@ -337,10 +337,13 @@ bool CovarianceImpl::GetCovarianceMatrixInTangentOrAmbientSpace(
                  max_covariance_block_size]);
 
   bool success = true;
-#ifdef _MSC_VER
-#pragma omp parallel for num_threads(num_threads) schedule(dynamic)
+
+// The collapse() directive is only supported in OpenMP 3.0 and higher. OpenMP
+// 3.0 was released in May 2008 (hence the version number).
+#if _OPENMP >= 200805
+#  pragma omp parallel for num_threads(num_threads) schedule(dynamic) collapse(2)
 #else
-#pragma omp parallel for num_threads(num_threads) schedule(dynamic) collapse(2)
+#  pragma omp parallel for num_threads(num_threads) schedule(dynamic)
 #endif
   for (int i = 0; i < parameters.size(); ++i) {
     for (int j = 0; j < parameters.size(); ++j) {
