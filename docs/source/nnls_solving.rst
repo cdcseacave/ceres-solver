@@ -1559,8 +1559,8 @@ elimination group [LiSaad]_.
    differences. This is expensive since it involves computing the
    derivative by normal means (e.g. user specified, autodiff, etc),
    then also computing it using finite differences. The results are
-   compared, and if they differ substantially, details are printed to
-   the log.
+   compared, and if they differ substantially, the optimization fails
+   and the details are stored in the solver summary.
 
 .. member:: double Solver::Options::gradient_check_relative_precision
 
@@ -1570,7 +1570,7 @@ elimination group [LiSaad]_.
    difference between an element in a Jacobian exceeds this number,
    then the Jacobian for that cost term is dumped.
 
-.. member:: double Solver::Options::numeric_derivative_relative_step_size
+.. member:: double Solver::Options::gradient_check_numeric_derivative_relative_step_size
 
    Default: ``1e-6``
 
@@ -1592,7 +1592,7 @@ elimination group [LiSaad]_.
 
    .. math::
 
-     \delta &= numeric\_derivative\_relative\_step\_size\\
+     \delta &= gradient\_check\_numeric\_derivative\_relative\_step\_size\\
      \Delta f &= \frac{f((1 + \delta)  x) - f(x)}{\delta x}
 
    The finite differencing is done along each dimension. The reason to

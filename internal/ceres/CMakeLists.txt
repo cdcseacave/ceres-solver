@@ -63,10 +63,12 @@ set(CERES_INTERNAL_SRC
     dynamic_compressed_row_sparse_matrix.cc
     evaluator.cc
     file.cc
+    gradient_checker.cc
     gradient_checking_cost_function.cc
     gradient_problem.cc
     gradient_problem_solver.cc
     implicit_schur_complement.cc
+    is_close.cc
     iterative_schur_complement_solver.cc
     levenberg_marquardt_strategy.cc
     lapack.cc
@@ -147,10 +149,13 @@ endif (CXSPARSE AND CXSPARSE_FOUND)
 
 
 if (OPENMP_FOUND)
-  if (NOT MSVC)
+  # OpenMP support in Clang requires a non-GNU OpenMP library.
+  if (CMAKE_COMPILER_IS_GNUCXX)
     list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES gomp)
+  endif()
+  if (NOT MSVC)
     list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${CMAKE_THREAD_LIBS_INIT})
-  endif (NOT MSVC)
+  endif()
 endif (OPENMP_FOUND)
 
 set(CERES_LIBRARY_SOURCE
@@ -306,6 +311,7 @@ if (BUILD_TESTING AND GFLAGS)
   ceres_test(graph)
   ceres_test(graph_algorithms)
   ceres_test(householder_vector)
+  ceres_test(is_close)
   ceres_test(implicit_schur_complement)
   ceres_test(iterative_schur_complement_solver)
   ceres_test(jet)

@@ -873,6 +873,56 @@ Numeric Differentiation & LocalParameterization
    and the Jacobian will be affected appropriately.
 
 
+:class:`GradientChecker`
+================================
+
+.. class:: GradientChecker
+
+    This class compares the Jacobians returned by a cost function against
+    derivatives estimated using finite differencing. It is meant as a tool for
+    unit testing, giving you more fine-grained control than the check_gradients
+    option in the solver options.
+
+    The condition enforced is that
+
+    .. math:: \forall{i,j}: \frac{J_{ij} - J'_{ij}}{max_{ij}(J_{ij} - J'_{ij})} < r
+
+    where :math:`J_{ij}` is the jacobian as computed by the supplied cost
+    function (by the user) multiplied by the local parameterization Jacobian,
+    :math:`J'_{ij}` is the jacobian as computed by finite differences,
+    multiplied by the local parameterization Jacobian as well, and :math:`r`
+    is the relative precision.
+
+   Usage:
+
+   .. code-block:: c++
+
+       //  my_cost_function takes two parameter blocks. The first has a local
+       //  parameterization associated with it.
+       CostFunction* my_cost_function = ...
+       LocalParameterization* my_parameterization = ...
+       NumericDiffOptions numeric_diff_options;
+
+       std::vector<LocalParameterization*> local_parameterizations;
+       local_parameterizations.push_back(my_parameterization);
+       local_parameterizations.push_back(NULL);
+
+       std::vector parameter1;
+       std::vector parameter2;
+       // Fill parameter 1 & 2 with test data...
+
+       std::vector<double*> parameter_blocks;
+       parameter_blocks.push_back(parameter1.data());
+       parameter_blocks.push_back(parameter2.data());
+
+       GradientChecker gradient_checker(my_cost_function,
+           local_parameterizations, numeric_diff_options);
+       GradientCheckResults results;
+       if (!gradient_checker.Probe(parameter_blocks.data(), 1e-9, &results) {
+         LOG(ERROR) << "An error has occured:\n" << results.error_log;
+       }
+
+
 :class:`NormalPrior`
 ====================
 
@@ -1272,6 +1322,19 @@ Instances
    is the standard quaternion
    product. :class:`QuaternionParameterization` is an implementation
    of :eq:`quaternion`.
+
+.. class:: EigenQuaternionParameterization
+
+   Eigen uses a different internal memory layout for the elements of the
+   quaternion than what is commonly used. Specifically, Eigen stores the
+   elements in memory as [x, y, z, w] where the real part is last
+   whereas it is typically stored first. Note, when creating an Eigen
+   quaternion through the constructor the elements are accepted in w, x,
+   y, z order. Since Ceres operates on parameter blocks which are raw
+   double pointers this difference is important and requires a different
+   parameterization. :class:`EigenQuaternionParameterization` uses the
+   same update as :class:`QuaternionParameterization` but takes into
+   account Eigen's internal memory element ordering.
 
 .. class:: HomogeneousVectorParameterization
 
@@ -1674,29 +1737,45 @@ Instances
    `NULL`. Which residual blocks and parameter blocks are used is
    controlled by the :class:`Problem::EvaluateOptions` struct below.
 
-   .. code-block:: c++
+   .. NOTE::
 
-     Problem problem;
-     double x = 1;
-     problem.Add(new MyCostFunction, NULL, &x);
+      The evaluation will use the values stored in the memory
+      locations pointed to by the parameter block pointers used at the
+      time of the construction of the problem, for example in the
+      following code:
 
-     double cost = 0.0;
-     problem.Evaluate(Problem::EvaluateOptions(), &cost, NULL, NULL, NULL);
+      .. code-block:: c++
 
-   The cost is evaluated at `x = 1`. If you wish to evaluate the
-   problem at `x = 2`, then
+        Problem problem;
+        double x = 1;
+        problem.Add(new MyCostFunction, NULL, &x);
 
-   .. code-block:: c++
+        double cost = 0.0;
+        problem.Evaluate(Problem::EvaluateOptions(), &cost, NULL, NULL, NULL);
 
-      x = 2;
-      problem.Evaluate(Problem::EvaluateOptions(), &cost, NULL, NULL, NULL);
+      The cost is evaluated at `x = 1`. If you wish to evaluate the
+      problem at `x = 2`, then
 
-   is the way to do so.
+      .. code-block:: c++
 
-   **NOTE** If no local parameterizations are used, then the size of
-   the gradient vector is the sum of the sizes of all the parameter
-   blocks. If a parameter block has a local parameterization, then
-   it contributes "LocalSize" entries to the gradient vector.
+         x = 2;
+         problem.Evaluate(Problem::EvaluateOptions(), &cost, NULL, NULL, NULL);
+
+      is the way to do so.
+
+   .. NOTE::
+
+      If no local parameterizations are used, then the size of
+      the gradient vector is the sum of the sizes of all the parameter
+      blocks. If a parameter block has a local parameterization, then
+      it contributes "LocalSize" entries to the gradient vector.
+
+   .. NOTE::
+
+      This function cannot be called while the problem is being
+      solved, for example it cannot be called from an
+      :class:`IterationCallback` at the end of an iteration during a
+      solve.
 
 .. class:: Problem::EvaluateOptions
 
