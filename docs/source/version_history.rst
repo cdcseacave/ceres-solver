@@ -4,6 +4,141 @@
 Version History
 ===============
 
+1.12.0
+======
+
+New Features
+------------
+#. Aligned ``Jet`` matrices for improved automatic differentiation
+   performance. (Andrew Hunter)
+#. Auto-differentiable implementations of Bessel functions, ``floor``,
+   and ``ceil`` (Alessandro Gentilini & Michael Vitus)
+#. New 2D and 3D SLAM examples. (Michael Vitus)
+#. Added``EigenQuaternionParameterization``. (Michael Vitus)
+#. Added ``Problem::IsParameterBlockConstant`` (Thomas Schneider)
+#. A complete refactoring of ``TrustRegionMinimizer``. (Sameer Agarwal)
+#. Gradient checking cleanup and local parameterization bugfix (David
+   Gossow)
+
+
+Backward Incompatible API Changes
+---------------------------------
+#. ``Solver::Options::numeric_derivative_relative_step_size`` has been
+   renamed to
+   ``Solver::Options::gradient_check_numeric_derivative_relative_step_size``. (Sameer
+   Agarwal)
+
+Bug Fixes & Minor Changes
+-------------------------
+#. Clear XXX_FOUND in Find<XXX>.cmake prior to searching. (Alex Stewart)
+#. Fix versioning in the documentation (Sameer Agarwal)
+#. Fix missing gflags imported target definition in
+   CeresConfig.cmake. (Alex Stewart)
+#. Make gflags a public dependency of Ceres if it and glog are
+   found. (Alex Stewart)
+#. Add support for glog exported CMake target. (Alex Stewart)
+#. Use ``google::GLOG_WARNING`` instead of ``WARNING`` in tests to support
+   MSVC. (Alex Stewart)
+#. Update gtest and gmock to
+   ``a2b8a8e07628e5fd60644b6dd99c1b5e7d7f1f47`` (Sameer Agarwal)
+#. Add MSVC-specific ``#define`` to expose math constants in
+   ``<cmath>``. (Alex Stewart)
+#. Fix typo. indepdendent -> independent (Hung Lun)
+#. Fix potential invalid reset of CMAKE_FIND_LIBRARY_PREFIXES on MSVC
+   (Alex Stewart)
+#. Fix use of alignas(0) which is not ignored on GCC (Alex Stewart)
+#. Use default alignment if alignof(std::max_align_t) < 16 with C++11
+   (Alex Stewart)
+#. Introduce a common base class for DynamicAutoDiffCostFunction and
+   DynamicNumericDiffCostFunction. (Sameer Agarwal)
+#. Fix an exact equality test causing breakage in
+   gradient_checker_test. (Sameer Agarwal)
+#. Add GradientProblemSolver::Options::parameter_tolerance. (Sameer
+   Agarwal)
+#. Add missing T() wrappers for constants. (Rob Carroll)
+#. Remove two checks from rotation.h (Sameer Agarwal)
+#. Relax the tolerance in QuaternionParameterizationTestHelper. (Je
+   Hyeong Hong)
+#. Occured -> Occurred. (Sameer Agarwal)
+#. Fix a test error in autodiff_test.cc. (Je Hyeong Hong)
+#. Fix documentation source for templated function in ``rotation.h``.
+#. Add ``package.xml`` to enable Catkin builds. (Damon Kohler)
+#. Relaxing Jacobian matching in Gradient Checker test. (David Gossow)
+#. Allow SubsetParameterization to hold all parameters constant
+   (Sameer Agarwal)
+#. Fix an Intel compiler error in covariance_impl.cc (Je Hyeong Hong)
+#. Removing duplicate include directive. (David Gossow)
+#. Remove two DCHECKs from CubicHermiteSpline. (Sameer Agarwal)
+#. Fix some compiler warnings. (Richard Trieu)
+#. Update ExpectArraysClose to use ExpectClose instead of
+   EXPECT_NEAR. (Phillip Hebner)
+#. FindWithDefault returns by value rather than reference. (@aradval)
+#. Fix compiler errors on some systems. (David Gossow)
+#. Note that Problem::Evaluate cannot be called from an
+   IterationCallback. (Sameer Agarwal)
+#. Use ProductParameterization in bundle_adjuster.cc (Sameer Agarwal)
+#. Enable support for OpenMP in Clang if detected. (Alex Stewart)
+#. Remove duplicate entry for the NIST example in the docs. (Michael Vitus)
+#. Add additional logging for analyzing orderings (Sameer Agarwal)
+#. Add readme for the sampled_function example. (Michael Vitus)
+#. Use _j[0,1,n]() Bessel functions on MSVC to avoid deprecation
+   errors. (Alex Stewart & Kichang Kim)
+#. Fix: Copy minimizer option ``is_silent`` to
+   ``LineSearchDirection::Options`` (Nicolai Wojke)
+#. Fix typos in ``users.rst`` (Sameer Agarwal)
+#. Make some Jet comparisons exact. (Sameer Agarwal)
+#. Add colmap to users.rst (Sameer Agarwal)
+#. Fix step norm evaluation in LineSearchMinimizer (Sameer Agarwal)
+#. Remove use of -Werror when compiling Ceres. (Alex Stewart)
+#. Report Ceres compile options as components in find_package(). (Alex
+   Stewart)
+#. Fix a spelling error in nnls_modeling.rst (Timer)
+#. Only use collapse() directive with OpenMP 3.0 or higher. (Keir Mierle)
+#. Fix install path for CeresConfig.cmake to be architecture-aware.
+#. Fix double conversion to degrees in rotation_test (Keir
+   Mierle)
+#. Make Jet string output more readable (Keir Mierle)
+#. Fix rotation_test IsClose() and related tests (Keir
+   Mierle)
+#. Loosen an exact equality in local_parameterization_test
+   (Sameer Agarwal)
+#. make_docs: Pass the file encoding to open() (Niels Ole Salscheider)
+#. Fix error message returned when using SUITE_SPARSE_QR in covariance
+   estimation on a ceres built without SuiteSparse support. (Simon
+   Rutishauser)
+#. Fix CXX11 option to be available on MinGW & CygWin, but not
+   MSVC. (Alex Stewart)
+#. Fix missing early return() in xxx_not_found() dependency
+   macros. (Alex Stewart)
+#. Initialize ``inner_iterations_were_useful_`` correctly. (Sameer Agarwal)
+#. Add an implementation for GradientProblemSolver::Options::IsValid
+   (Sameer Agarwal)
+#. Fix use of va_copy() if compiling with explicit C++ version <
+   C++11. (Alex Stewart)
+#. Install CMake files to lib/cmake/Ceres (Niels Ole Salscheider)
+#. Allow users to override the documentation install directory. (Niels
+   Ole Salscheider)
+#. Add covariance matrix for a vector of parameters (Wannes Van Loock)
+#. Saner tolerances & stricter LRE test. (Sameer Agarwal)
+#. Fix a malformed sentence in the tutorial. (Sameer Agarwal)
+#. Add logging for sparse Cholesky factorization using Eigen. (Sameer
+   Agarwal)
+#. Use std::adjacent_find instead of std::unique. (Sameer Agarwal)
+#. Improve logging in CompressedRowJacobianWriter on crash. (Sameer
+   Agarwal)
+#. Fix free parameter block handling in covariance computation (Wannes
+   Van Loock)
+#. Report the number of line search steps in FullReport. (Sameer
+   Agarwal)
+#. Make CMake read Ceres version directly from
+   include/ceres/version.h. (Alex Stewart)
+#. Lots of code style/lint changes. (William Rucklidge)
+#. Fix covariance computation for constant blocks (Wannes Van Loock)
+#. Add IOS_DEPLOYMENT_TARGET variable to iOS.cmake (Eduard Feicho)
+#. Make miniglog threadsafe on non-windows system by using
+   localtime_r() instead of localtime() for time formatting (Simon
+   Rutishauser)
+
 1.11.0
 ======
 

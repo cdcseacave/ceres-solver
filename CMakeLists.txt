@@ -306,6 +306,7 @@ if (GFLAGS)
   if (GFLAGS_FOUND)
     message("-- Found Google Flags header in: ${GFLAGS_INCLUDE_DIRS}, "
       "in namespace: ${GFLAGS_NAMESPACE}")
+    add_definitions(-DCERES_GFLAGS_NAMESPACE=${GFLAGS_NAMESPACE})
   else (GFLAGS_FOUND)
     message("-- Did not find Google Flags (gflags), Building without gflags "
       "- no tests or tools will be built!")
@@ -340,13 +341,24 @@ else (MINIGLOG)
   # Don't search with REQUIRED so that configuration continues if not found and
   # we can output an error messages explaining MINIGLOG option.
   find_package(Glog)
-  if (GLOG_FOUND)
-    message("-- Found Google Log header in: ${GLOG_INCLUDE_DIRS}")
-  else (GLOG_FOUND)
-    message(FATAL_ERROR "Can't find Google Log. Please set GLOG_INCLUDE_DIR & "
+  if (NOT GLOG_FOUND)
+    message(FATAL_ERROR "Can't find Google Log (glog). Please set either: "
+      "glog_DIR (newer CMake built versions of glog) or GLOG_INCLUDE_DIR & "
       "GLOG_LIBRARY or enable MINIGLOG option to use minimal glog "
       "implementation.")
-  endif (GLOG_FOUND)
+  endif(NOT GLOG_FOUND)
+  # By default, assume gflags was found, updating the message if it was not.
+  set(GLOG_GFLAGS_DEPENDENCY_MESSAGE
+    " Assuming glog was built with gflags support as gflags was found. "
+    "This will make gflags a public dependency of Ceres.")
+  if (NOT GFLAGS_FOUND)
+    set(GLOG_GFLAGS_DEPENDENCY_MESSAGE
+      " Assuming glog was NOT built with gflags support as gflags was "
+      "not found.  If glog was built with gflags, please set the "
+      "gflags search locations such that it can be found by Ceres.  "
+      "Otherwise, Ceres may fail to link due to missing gflags symbols.")
+  endif(NOT GFLAGS_FOUND)
+  message("-- Found Google Log (glog)." ${GLOG_GFLAGS_DEPENDENCY_MESSAGE})
 endif (MINIGLOG)
 
 if (NOT SCHUR_SPECIALIZATIONS)
@@ -549,6 +561,12 @@ endif (MINGW)
 
 # After the tweaks for the compile settings, disable some warnings on MSVC.
 if (MSVC)
+  # On MSVC, math constants are not included in <cmath> or <math.h> unless
+  # _USE_MATH_DEFINES is defined [1].  As we use M_PI in the examples, ensure
+  # that _USE_MATH_DEFINES is defined before the first inclusion of <cmath>.
+  #
+  # [1] https://msdn.microsoft.com/en-us/library/4hwaceh6.aspx
+  add_definitions("-D_USE_MATH_DEFINES")
   # Disable signed/unsigned int conversion warnings.
   add_definitions("/wd4018")
   # Disable warning about using struct/class for the same symobl.
@@ -783,6 +801,7 @@ install(FILES "${CMAKE_BINARY_DIR}/CeresConfig-install.cmake"
 install(FILES "${CMAKE_BINARY_DIR}/CeresConfigVersion.cmake"
               "${CMAKE_SOURCE_DIR}/cmake/FindEigen.cmake"
               "${CMAKE_SOURCE_DIR}/cmake/FindGlog.cmake"
+              "${CMAKE_SOURCE_DIR}/cmake/FindGflags.cmake"
         DESTINATION ${RELATIVE_CMAKECONFIG_INSTALL_DIR})
 
 # Create an uninstall target to remove all installed files.

@@ -370,7 +370,7 @@ the corresponding accessors. This information will be verified by the
     NumericDiffOptions. Update DynamicNumericDiffOptions in a similar
     manner.
 
-    .. code-block:: c++
+  .. code-block:: c++
 
       template <typename CostFunctor,
                 NumericDiffMethodType method = CENTRAL,
@@ -389,15 +389,15 @@ the corresponding accessors. This information will be verified by the
       SizedCostFunction<kNumResiduals, N0, N1, N2, N3, N4, N5, N6, N7, N8, N9> {
       };
 
-   To get a numerically differentiated :class:`CostFunction`, you must
-   define a class with a ``operator()`` (a functor) that computes the
-   residuals. The functor must write the computed value in the last
-   argument (the only non-``const`` one) and return ``true`` to
-   indicate success.  Please see :class:`CostFunction` for details on
-   how the return value may be used to impose simple constraints on
-   the parameter block. e.g., an object of the form
+  To get a numerically differentiated :class:`CostFunction`, you must
+  define a class with a ``operator()`` (a functor) that computes the
+  residuals. The functor must write the computed value in the last
+  argument (the only non-``const`` one) and return ``true`` to
+  indicate success.  Please see :class:`CostFunction` for details on
+  how the return value may be used to impose simple constraints on the
+  parameter block. e.g., an object of the form
 
-   .. code-block:: c++
+  .. code-block:: c++
 
      struct ScalarFunctor {
       public:
@@ -406,19 +406,19 @@ the corresponding accessors. This information will be verified by the
                        double* residuals) const;
      }
 
-   For example, consider a scalar error :math:`e = k - x'y`, where
-   both :math:`x` and :math:`y` are two-dimensional column vector
-   parameters, the prime sign indicates transposition, and :math:`k`
-   is a constant. The form of this error, which is the difference
-   between a constant and an expression, is a common pattern in least
-   squares problems. For example, the value :math:`x'y` might be the
-   model expectation for a series of measurements, where there is an
-   instance of the cost function for each measurement :math:`k`.
+  For example, consider a scalar error :math:`e = k - x'y`, where both
+  :math:`x` and :math:`y` are two-dimensional column vector
+  parameters, the prime sign indicates transposition, and :math:`k` is
+  a constant. The form of this error, which is the difference between
+  a constant and an expression, is a common pattern in least squares
+  problems. For example, the value :math:`x'y` might be the model
+  expectation for a series of measurements, where there is an instance
+  of the cost function for each measurement :math:`k`.
 
-   To write an numerically-differentiable class:`CostFunction` for the
-   above model, first define the object
+  To write an numerically-differentiable class:`CostFunction` for the
+  above model, first define the object
 
-   .. code-block::  c++
+  .. code-block::  c++
 
      class MyScalarCostFunctor {
        MyScalarCostFunctor(double k): k_(k) {}
@@ -434,39 +434,39 @@ the corresponding accessors. This information will be verified by the
        double k_;
      };
 
-   Note that in the declaration of ``operator()`` the input parameters
-   ``x`` and ``y`` come first, and are passed as const pointers to
-   arrays of ``double`` s. If there were three input parameters, then
-   the third input parameter would come after ``y``. The output is
-   always the last parameter, and is also a pointer to an array. In
-   the example above, the residual is a scalar, so only
-   ``residuals[0]`` is set.
+  Note that in the declaration of ``operator()`` the input parameters
+  ``x`` and ``y`` come first, and are passed as const pointers to
+  arrays of ``double`` s. If there were three input parameters, then
+  the third input parameter would come after ``y``. The output is
+  always the last parameter, and is also a pointer to an array. In the
+  example above, the residual is a scalar, so only ``residuals[0]`` is
+  set.
 
-   Then given this class definition, the numerically differentiated
-   :class:`CostFunction` with central differences used for computing
-   the derivative can be constructed as follows.
+  Then given this class definition, the numerically differentiated
+  :class:`CostFunction` with central differences used for computing
+  the derivative can be constructed as follows.
 
-   .. code-block:: c++
+  .. code-block:: c++
 
-     CostFunction* cost_function
-         = new NumericDiffCostFunction<MyScalarCostFunctor, CENTRAL, 1, 2, 2>(
-             new MyScalarCostFunctor(1.0));                    ^     ^  ^  ^
-                                                               |     |  |  |
-                                   Finite Differencing Scheme -+     |  |  |
-                                   Dimension of residual ------------+  |  |
-                                   Dimension of x ----------------------+  |
-                                   Dimension of y -------------------------+
+    CostFunction* cost_function
+        = new NumericDiffCostFunction<MyScalarCostFunctor, CENTRAL, 1, 2, 2>(
+            new MyScalarCostFunctor(1.0));                    ^     ^  ^  ^
+                                                              |     |  |  |
+                                  Finite Differencing Scheme -+     |  |  |
+                                  Dimension of residual ------------+  |  |
+                                  Dimension of x ----------------------+  |
+                                  Dimension of y -------------------------+
 
-   In this example, there is usually an instance for each measurement
-   of `k`.
+  In this example, there is usually an instance for each measurement
+  of `k`.
 
-   In the instantiation above, the template parameters following
-   ``MyScalarCostFunctor``, ``1, 2, 2``, describe the functor as
-   computing a 1-dimensional output from two arguments, both
-   2-dimensional.
+  In the instantiation above, the template parameters following
+  ``MyScalarCostFunctor``, ``1, 2, 2``, describe the functor as
+  computing a 1-dimensional output from two arguments, both
+  2-dimensional.
 
-   NumericDiffCostFunction also supports cost functions with a
-   runtime-determined number of residuals. For example:
+  NumericDiffCostFunction also supports cost functions with a
+  runtime-determined number of residuals. For example:
 
    .. code-block:: c++
 
@@ -483,42 +483,44 @@ the corresponding accessors. This information will be verified by the
                Dimension of y ---------------------------------------------------+
 
 
-   The framework can currently accommodate cost functions of up to 10
-   independent variables, and there is no limit on the dimensionality
-   of each of them.
+  The framework can currently accommodate cost functions of up to 10
+  independent variables, and there is no limit on the dimensionality
+  of each of them.
 
-   There are three available numeric differentiation schemes in ceres-solver:
+  There are three available numeric differentiation schemes in ceres-solver:
 
-   The ``FORWARD`` difference method, which approximates :math:`f'(x)`
-   by computing :math:`\frac{f(x+h)-f(x)}{h}`, computes the cost function
-   one additional time at :math:`x+h`. It is the fastest but least accurate
-   method.
+  The ``FORWARD`` difference method, which approximates :math:`f'(x)`
+  by computing :math:`\frac{f(x+h)-f(x)}{h}`, computes the cost
+  function one additional time at :math:`x+h`. It is the fastest but
+  least accurate method.
 
-   The ``CENTRAL`` difference method is more accurate at
-   the cost of twice as many function evaluations than forward
-   difference, estimating :math:`f'(x)` by computing
-   :math:`\frac{f(x+h)-f(x-h)}{2h}`.
+  The ``CENTRAL`` difference method is more accurate at the cost of
+  twice as many function evaluations than forward difference,
+  estimating :math:`f'(x)` by computing
+  :math:`\frac{f(x+h)-f(x-h)}{2h}`.
 
-   The ``RIDDERS`` difference method[Ridders]_ is an adaptive scheme that
-   estimates derivatives by performing multiple central differences
-   at varying scales. Specifically, the algorithm starts at a certain
-   :math:`h` and as the derivative is estimated, this step size decreases.
-   To conserve function evaluations and estimate the derivative error, the
-   method performs Richardson extrapolations between the tested step sizes.
-   The algorithm exhibits considerably higher accuracy, but does so by
-   additional evaluations of the cost function.
+  The ``RIDDERS`` difference method[Ridders]_ is an adaptive scheme
+  that estimates derivatives by performing multiple central
+  differences at varying scales. Specifically, the algorithm starts at
+  a certain :math:`h` and as the derivative is estimated, this step
+  size decreases.  To conserve function evaluations and estimate the
+  derivative error, the method performs Richardson extrapolations
+  between the tested step sizes.  The algorithm exhibits considerably
+  higher accuracy, but does so by additional evaluations of the cost
+  function.
 
-   Consider using ``CENTRAL`` differences to begin with. Based on the
-   results, either try forward difference to improve performance or
-   Ridders' method to improve accuracy.
+  Consider using ``CENTRAL`` differences to begin with. Based on the
+  results, either try forward difference to improve performance or
+  Ridders' method to improve accuracy.
 
-   **WARNING** A common beginner's error when first using
-   NumericDiffCostFunction is to get the sizing wrong. In particular,
-   there is a tendency to set the template parameters to (dimension of
-   residual, number of parameters) instead of passing a dimension
-   parameter for *every parameter*. In the example above, that would
-   be ``<MyScalarCostFunctor, 1, 2>``, which is missing the last ``2``
-   argument. Please be careful when setting the size parameters.
+  **WARNING** A common beginner's error when first using
+  :class:`NumericDiffCostFunction` is to get the sizing wrong. In
+  particular, there is a tendency to set the template parameters to
+  (dimension of residual, number of parameters) instead of passing a
+  dimension parameter for *every parameter*. In the example above,
+  that would be ``<MyScalarCostFunctor, 1, 2>``, which is missing the
+  last ``2`` argument. Please be careful when setting the size
+  parameters.
 
 
 Numeric Differentiation & LocalParameterization
@@ -919,7 +921,7 @@ Numeric Differentiation & LocalParameterization
            local_parameterizations, numeric_diff_options);
        GradientCheckResults results;
        if (!gradient_checker.Probe(parameter_blocks.data(), 1e-9, &results) {
-         LOG(ERROR) << "An error has occured:\n" << results.error_log;
+         LOG(ERROR) << "An error has occurred:\n" << results.error_log;
        }
 
 
@@ -1815,7 +1817,7 @@ quaternion and matrix) we provide a handy set of templated
 functions. These functions are templated so that the user can use them
 within Ceres Solver's automatic differentiation framework.
 
-.. function:: void AngleAxisToQuaternion<T>(T const* angle_axis, T* quaternion)
+.. function:: template <typename T> void AngleAxisToQuaternion(T const* angle_axis, T* quaternion)
 
    Convert a value in combined axis-angle representation to a
    quaternion.
@@ -1824,7 +1826,7 @@ within Ceres Solver's automatic differentiation framework.
    and whose direction is aligned with the axis of rotation, and
    ``quaternion`` is a 4-tuple that will contain the resulting quaternion.
 
-.. function:: void QuaternionToAngleAxis<T>(T const* quaternion, T* angle_axis)
+.. function::  template <typename T> void QuaternionToAngleAxis(T const* quaternion, T* angle_axis)
 
    Convert a quaternion to the equivalent combined axis-angle
    representation.
@@ -1834,17 +1836,17 @@ within Ceres Solver's automatic differentiation framework.
    whose norm is the angle of rotation in radians, and whose direction
    is the axis of rotation.
 
-.. function:: void RotationMatrixToAngleAxis<T, row_stride, col_stride>(const MatrixAdapter<const T, row_stride, col_stride>& R, T * angle_axis)
-.. function:: void AngleAxisToRotationMatrix<T, row_stride, col_stride>(T const * angle_axis, const MatrixAdapter<T, row_stride, col_stride>& R)
-.. function:: void RotationMatrixToAngleAxis<T>(T const * R, T * angle_axis)
-.. function:: void AngleAxisToRotationMatrix<T>(T const * angle_axis, T * R)
+.. function:: template <typename T, int row_stride, int col_stride> void RotationMatrixToAngleAxis(const MatrixAdapter<const T, row_stride, col_stride>& R, T * angle_axis)
+.. function:: template <typename T, int row_stride, int col_stride> void AngleAxisToRotationMatrix(T const * angle_axis, const MatrixAdapter<T, row_stride, col_stride>& R)
+.. function:: template <typename T> void RotationMatrixToAngleAxis(T const * R, T * angle_axis)
+.. function:: template <typename T> void AngleAxisToRotationMatrix(T const * angle_axis, T * R)
 
    Conversions between 3x3 rotation matrix with given column and row strides and
    axis-angle rotation representations. The functions that take a pointer to T instead
    of a MatrixAdapter assume a column major representation with unit row stride and a column stride of 3.
 
-.. function:: void EulerAnglesToRotationMatrix<T, row_stride, col_stride>(const T* euler, const MatrixAdapter<T, row_stride, col_stride>& R)
-.. function:: void EulerAnglesToRotationMatrix<T>(const T* euler, int row_stride, T* R)
+.. function:: template <typename T, int row_stride, int col_stride> void EulerAnglesToRotationMatrix(const T* euler, const MatrixAdapter<T, row_stride, col_stride>& R)
+.. function:: template <typename T> void EulerAnglesToRotationMatrix(const T* euler, int row_stride, T* R)
 
    Conversions between 3x3 rotation matrix with given column and row strides and
    Euler angle (in degrees) rotation representations.
@@ -1857,8 +1859,8 @@ within Ceres Solver's automatic differentiation framework.
    major representation with unit column stride and a row stride of 3.
    The additional parameter row_stride is required to be 3.
 
-.. function:: void QuaternionToScaledRotation<T, row_stride, col_stride>(const T q[4], const MatrixAdapter<T, row_stride, col_stride>& R)
-.. function:: void QuaternionToScaledRotation<T>(const T q[4], T R[3 * 3])
+.. function:: template <typename T, int row_stride, int col_stride> void QuaternionToScaledRotation(const T q[4], const MatrixAdapter<T, row_stride, col_stride>& R)
+.. function:: template <typename T> void QuaternionToScaledRotation(const T q[4], T R[3 * 3])
 
    Convert a 4-vector to a 3x3 scaled rotation matrix.
 
@@ -1887,13 +1889,13 @@ within Ceres Solver's automatic differentiation framework.
    such that :math:`\det(Q) = 1` and :math:`Q*Q' = I`.
 
 
-.. function:: void QuaternionToRotation<T>(const T q[4], const MatrixAdapter<T, row_stride, col_stride>& R)
-.. function:: void QuaternionToRotation<T>(const T q[4], T R[3 * 3])
+.. function:: template <typename T> void QuaternionToRotation(const T q[4], const MatrixAdapter<T, row_stride, col_stride>& R)
+.. function:: template <typename T> void QuaternionToRotation(const T q[4], T R[3 * 3])
 
    Same as above except that the rotation matrix is normalized by the
    Frobenius norm, so that :math:`R R' = I` (and :math:`\det(R) = 1`).
 
-.. function:: void UnitQuaternionRotatePoint<T>(const T q[4], const T pt[3], T result[3])
+.. function:: template <typename T> void UnitQuaternionRotatePoint(const T q[4], const T pt[3], T result[3])
 
    Rotates a point pt by a quaternion q:
 
@@ -1904,23 +1906,23 @@ within Ceres Solver's automatic differentiation framework.
    result you get for a unit quaternion.
 
 
-.. function:: void QuaternionRotatePoint<T>(const T q[4], const T pt[3], T result[3])
+.. function:: template <typename T> void QuaternionRotatePoint(const T q[4], const T pt[3], T result[3])
 
    With this function you do not need to assume that :math:`q` has unit norm.
    It does assume that the norm is non-zero.
 
-.. function:: void QuaternionProduct<T>(const T z[4], const T w[4], T zw[4])
+.. function:: template <typename T> void QuaternionProduct(const T z[4], const T w[4], T zw[4])
 
    .. math:: zw = z * w
 
    where :math:`*` is the Quaternion product between 4-vectors.
 
 
-.. function:: void CrossProduct<T>(const T x[3], const T y[3], T x_cross_y[3])
+.. function:: template <typename T> void CrossProduct(const T x[3], const T y[3], T x_cross_y[3])
 
    .. math:: \text{x_cross_y} = x \times y
 
-.. function:: void AngleAxisRotatePoint<T>(const T angle_axis[3], const T pt[3], T result[3])
+.. function:: template <typename T> void AngleAxisRotatePoint(const T angle_axis[3], const T pt[3], T result[3])
 
    .. math:: y = R(\text{angle_axis}) x
 
