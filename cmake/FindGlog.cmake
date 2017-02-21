@@ -161,8 +161,21 @@ if (GLOG_PREFER_EXPORTED_GLOG_CMAKE_CONFIGURATION)
   # recently with the CMake GUI to ensure that we always prefer an installed
   # version if available.
   #
+  # NOTE: We use the NAMES option as glog erroneously uses 'google-glog' as its
+  #       project name when built with CMake, but exports itself as just 'glog'.
+  #       On Linux/OS X this does not break detection as the project name is
+  #       not used as part of the install path for the CMake package files,
+  #       e.g. /usr/local/lib/cmake/glog, where the <glog> suffix is hardcoded
+  #       in glog's CMakeLists.  However, on Windows the project name *is*
+  #       part of the install prefix: C:/Program Files/google-glog/[include,lib].
+  #       However, by default CMake checks:
+  #       C:/Program Files/<FIND_PACKAGE_ARGUMENT_NAME='glog'> which does not
+  #       exist and thus detection fails.  Thus we use the NAMES to force the
+  #       search to use both google-glog & glog.
+  #
   # [1] http://www.cmake.org/cmake/help/v2.8.11/cmake.html#command:find_package
   find_package(glog QUIET
+                    NAMES google-glog glog
                     NO_MODULE
                     NO_CMAKE_PACKAGE_REGISTRY
                     NO_CMAKE_BUILDS_PATH)
@@ -176,6 +189,7 @@ if (GLOG_PREFER_EXPORTED_GLOG_CMAKE_CONFIGURATION)
     # Again pass NO_CMAKE_BUILDS_PATH, as we know that glog is exported and
     # do not want to treat projects built with the CMake GUI preferentially.
     find_package(glog QUIET
+                      NAMES google-glog glog
                       NO_MODULE
                       NO_CMAKE_BUILDS_PATH)
     if (glog_FOUND)
@@ -225,7 +239,9 @@ if (NOT GLOG_FOUND)
     glog/include
     glog/Include
     Glog/include
-    Glog/Include)
+    Glog/Include
+    google-glog/include # CMake installs with project name prefix.
+    google-glog/Include)
 
   list(APPEND GLOG_CHECK_LIBRARY_DIRS
     /usr/local/lib
@@ -237,7 +253,9 @@ if (NOT GLOG_FOUND)
     glog/lib
     glog/Lib
     Glog/lib
-    Glog/Lib)
+    Glog/Lib
+    google-glog/lib # CMake installs with project name prefix.
+    google-glog/Lib)
 
   # Search supplied hint directories first if supplied.
   find_path(GLOG_INCLUDE_DIR
