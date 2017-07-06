@@ -98,6 +98,7 @@ set(CERES_INTERNAL_SRC
     schur_complement_solver.cc
     schur_eliminator.cc
     schur_jacobi_preconditioner.cc
+    schur_templates.cc
     scratch_evaluate_preparer.cc
     single_linkage_clustering.cc
     solver.cc
@@ -120,6 +121,14 @@ set(CERES_INTERNAL_SRC
 
 # Also depend on the header files so that they appear in IDEs.
 file(GLOB CERES_INTERNAL_HDRS *.h)
+if (MINIGLOG)
+  file(GLOB MINIGLOG_HDRS miniglog/glog/*.h)
+  list(APPEND CERES_INTERNAL_HDRS ${MINIGLOG_HDRS})
+endif()
+
+# Depend also on public headers so they appear in IDEs.
+file(GLOB CERES_PUBLIC_HDRS ${Ceres_SOURCE_DIR}/include/ceres/*.h)
+file(GLOB CERES_PUBLIC_INTERNAL_HDRS ${Ceres_SOURCE_DIR}/include/ceres/internal/*.h)
 
 # Include the specialized schur solvers.
 if (SCHUR_SPECIALIZATIONS)
@@ -169,6 +178,8 @@ endif (OPENMP_FOUND)
 set(CERES_LIBRARY_SOURCE
     ${CERES_INTERNAL_SRC}
     ${CERES_INTERNAL_HDRS}
+    ${CERES_PUBLIC_HDRS}
+    ${CERES_PUBLIC_INTERNAL_HDRS}
     ${CERES_INTERNAL_SCHUR_FILES})
 
 # Primarily for Android, but optionally for others, compile the minimal
@@ -280,7 +291,7 @@ if (BUILD_TESTING AND GFLAGS)
     add_test(NAME ${NAME}_test
              COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${NAME}_test
              --test_srcdir
-             ${CMAKE_SOURCE_DIR}/data)
+             ${Ceres_SOURCE_DIR}/data)
   endmacro (CERES_TEST)
 
   ceres_test(array_utils)
@@ -320,6 +331,7 @@ if (BUILD_TESTING AND GFLAGS)
   ceres_test(jet)
   ceres_test(levenberg_marquardt_strategy)
   ceres_test(dogleg_strategy)
+  ceres_test(line_search_minimizer)
   ceres_test(line_search_preprocessor)
   ceres_test(local_parameterization)
   ceres_test(loss_function)

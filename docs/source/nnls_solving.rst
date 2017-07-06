@@ -867,7 +867,7 @@ elimination group [LiSaad]_.
    Choices are ``FLETCHER_REEVES``, ``POLAK_RIBIERE`` and
    ``HESTENES_STIEFEL``.
 
-.. member:: int Solver::Options::max_lbfs_rank
+.. member:: int Solver::Options::max_lbfgs_rank
 
    Default: 20
 
@@ -2153,6 +2153,23 @@ The three arrays will be:
    left :member:`Solver::Summary::linear_solver_ordering_given` blank
    and asked for an automatic ordering, or if the problem contains
    some constant or inactive parameter blocks.
+
+.. member:: std::string Solver::Summary::schur_structure_given
+
+    For Schur type linear solvers, this string describes the template
+    specialization which was detected in the problem and should be
+    used.
+
+.. member:: std::string Solver::Summary::schur_structure_used
+
+   For Schur type linear solvers, this string describes the template
+   specialization that was actually instantiated and used. The reason
+   this will be different from
+   :member:`Solver::Summary::schur_structure_given` is because the
+   corresponding template specialization does not exist.
+
+   Template specializations can be added to ceres by editing
+   ``internal/ceres/generate_template_specializations.py``
 
 .. member:: bool Solver::Summary::inner_iterations_given
 
