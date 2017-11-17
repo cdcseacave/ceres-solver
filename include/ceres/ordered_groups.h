@@ -167,16 +167,16 @@ class OrderedGroups {
   int GroupSize(const int group) const {
     typename std::map<int, std::set<T> >::const_iterator it =
         group_to_elements_.find(group);
-    return (it ==  group_to_elements_.end()) ? 0 : it->second.size();
+    return (it ==  group_to_elements_.end()) ? 0 : (int)it->second.size();
   }
 
   int NumElements() const {
-    return element_to_group_.size();
+    return (int)element_to_group_.size();
   }
 
   // Number of groups with one or more elements.
   int NumGroups() const {
-    return group_to_elements_.size();
+    return (int)group_to_elements_.size();
   }
 
   // The first group with one or more elements. Calling this when

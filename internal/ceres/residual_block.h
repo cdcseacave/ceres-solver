@@ -114,7 +114,7 @@ class ResidualBlock {
 
   // Number of variable blocks that this residual term depends on.
   int NumParameterBlocks() const {
-    return cost_function_->parameter_block_sizes().size();
+    return (int)cost_function_->parameter_block_sizes().size();
   }
 
   // The size of the residual vector returned by this residual function.

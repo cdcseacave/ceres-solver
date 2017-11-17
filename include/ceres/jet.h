@@ -224,6 +224,27 @@ struct Jet {
     return *this;
   }
 
+  // Compound with scalar operators.
+  Jet<T, N>& operator+=(const T& s) {
+    *this = *this + s;
+    return *this;
+  }
+
+  Jet<T, N>& operator-=(const T& s) {
+    *this = *this - s;
+    return *this;
+  }
+
+  Jet<T, N>& operator*=(const T& s) {
+    *this = *this * s;
+    return *this;
+  }
+
+  Jet<T, N>& operator/=(const T& s) {
+    *this = *this / s;
+    return *this;
+  }
+
   // The scalar part.
   T a;
 
@@ -878,6 +899,9 @@ struct NumTraits<ceres::Jet<T, N> > {
       Cost = 3
     };
   };
+
+  static inline Real highest() { return Real(std::numeric_limits<T>::max()); }
+  static inline Real lowest() { return Real(-std::numeric_limits<T>::max()); }
 };
 
 #if EIGEN_VERSION_AT_LEAST(3, 3, 0)

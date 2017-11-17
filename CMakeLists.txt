@@ -94,7 +94,7 @@ option(MINIGLOG "Use a stripped down version of glog." ON)
 option(GFLAGS "Enable Google Flags." OFF)
 option(SUITESPARSE "Enable SuiteSparse." ON)
 option(CXSPARSE "Enable CXSparse." ON)
-option(LAPACK "Enable use of LAPACK." ON)
+option(LAPACK "Enable use of LAPACK directly within Ceres." ON)
 # Template specializations for the Schur complement based solvers. If
 # compile time, binary size or compiler performance is an issue, you
 # may consider disabling this.
@@ -104,6 +104,8 @@ option(CUSTOM_BLAS
        ON)
 # Multithreading using OpenMP
 option(OPENMP "Enable threaded solving in Ceres (requires OpenMP)" ON)
+# Multithreading using TBB
+option(TBB "Enable threaded solving in Ceres with TBB (requires TBB and C++11)" OFF)
 # Enable the use of Eigen as a sparse linear algebra library for
 # solving the nonlinear least squares problems. Enabling this
 # option will result in an LGPL licensed version of Ceres Solver
@@ -190,6 +192,7 @@ if (IOS)
   update_cache_variable(CXSPARSE OFF)
   update_cache_variable(GFLAGS OFF)
   update_cache_variable(OPENMP OFF)
+  update_cache_variable(TBB OFF)
   # Apple claims that the BLAS call dsyrk_ is a private API, and will not allow
   # you to submit to the Apple Store if the symbol is present.
   update_cache_variable(LAPACK OFF)
@@ -239,19 +242,15 @@ if(EIGEN_FOUND)
   endif (EIGENSPARSE)
 endif (EIGEN_FOUND)
 
-# LAPACK (& BLAS).
 if (LAPACK)
   find_package(LAPACK QUIET)
   if (LAPACK_FOUND)
     message("-- Found LAPACK library: ${LAPACK_LIBRARIES}")
   else (LAPACK_FOUND)
     message("-- Did not find LAPACK library, disabling LAPACK support.")
-  endif (LAPACK_FOUND)
-
-  IF (NOT LAPACK_FOUND)
     update_cache_variable(LAPACK OFF)
     list(APPEND CERES_COMPILE_OPTIONS CERES_NO_LAPACK)
-  ENDIF()
+  endif (LAPACK_FOUND)
 else (LAPACK)
   message("-- Building without LAPACK.")
   list(APPEND CERES_COMPILE_OPTIONS CERES_NO_LAPACK)
@@ -331,7 +330,7 @@ endif (GFLAGS)
 
 # MiniGLog.
 if (MINIGLOG)
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DMAX_LOG_LEVEL=2")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DMAX_LOG_LEVEL=1")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DMAX_LOG_LEVEL=0")
   message("-- Compiling minimal glog substitute into Ceres.")
   set(GLOG_INCLUDE_DIRS internal/ceres/miniglog)
@@ -381,6 +380,14 @@ if (NOT CUSTOM_BLAS)
   message("-- Disabling custom blas")
 endif (NOT CUSTOM_BLAS)
 
+# OpenMP and TBB are mutually exclusive options. OpenMP is on by default thus
+# disable it if the user requested TBB.
+if (TBB AND OPENMP)
+  update_cache_variable(OPENMP OFF)
+  message("-- Intel TBB enabled; disabling OpenMP support (they are mutually "
+    "exclusive)")
+endif (TBB AND OPENMP)
+
 if (OPENMP)
   # Find quietly, as we can continue without OpenMP if it is not found.
   find_package(OpenMP QUIET)
@@ -388,23 +395,49 @@ if (OPENMP)
     message("-- Building with OpenMP.")
     list(APPEND CERES_COMPILE_OPTIONS CERES_USE_OPENMP)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    if (UNIX)
-      # At least on Linux, we need pthreads to be enabled for mutex to
-      # compile.  This may not work on Windows or Android.
-      find_package(Threads REQUIRED)
-      list(APPEND CERES_COMPILE_OPTIONS CERES_HAVE_PTHREAD)
-      list(APPEND CERES_COMPILE_OPTIONS CERES_HAVE_RWLOCK)
-    endif (UNIX)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   else (OPENMP_FOUND)
     message("-- Failed to find OpenMP, disabling. This is expected on "
-      "Clang < 3.8, and at least Xcode <= 7.")
+      "Clang < 3.8, and at least Xcode <= 8.  See Ceres documentation for "
+      "instructions to build with LLVM from Homebrew to enable OpenMP on OS X.")
     update_cache_variable(OPENMP OFF)
     list(APPEND CERES_COMPILE_OPTIONS CERES_NO_THREADS)
   endif (OPENMP_FOUND)
 else (OPENMP)
-  message("-- Building without OpenMP (disabling multithreading).")
-  list(APPEND CERES_COMPILE_OPTIONS CERES_NO_THREADS)
+  message("-- Building without OpenMP, disabling.")
 endif (OPENMP)
+
+# Initialise CMAKE_REQUIRED_FLAGS used by CheckCXXSourceCompiles with the
+# contents of CMAKE_CXX_FLAGS such that if the user has passed extra flags
+# they are used when discovering shared_ptr/unordered_map.
+set(CMAKE_REQUIRED_FLAGS ${CMAKE_CXX_FLAGS})
+
+if (TBB)
+  find_package(TBB REQUIRED)
+  if (TBB_FOUND)
+    message("-- Building with TBB.")
+    list(APPEND CERES_COMPILE_OPTIONS CERES_USE_TBB)
+    include_directories(${TBB_INCLUDE_DIRS})
+    # TBB requires C++11
+    update_cache_variable(CXX11 ON)
+  else (TBB_FOUND)
+    message("-- Failed to find TBB, disabling.")
+    update_cache_variable(TBB OFF)
+  endif (TBB_FOUND)
+endif (TBB)
+
+if (NOT OPENMP AND NOT TBB)
+  message("-- Nor OpenMP neither TBB is used, disabling multithreading.")
+  list(APPEND CERES_COMPILE_OPTIONS CERES_NO_THREADS)
+else (NOT OPENMP AND NOT TBB)
+  if (UNIX)
+    # At least on Linux, we need pthreads to be enabled for mutex to
+    # compile.  This may not work on Windows or Android.
+    find_package(Threads REQUIRED)
+    list(APPEND CERES_COMPILE_OPTIONS CERES_HAVE_PTHREAD)
+    list(APPEND CERES_COMPILE_OPTIONS CERES_HAVE_RWLOCK)
+  endif (UNIX)
+endif (NOT OPENMP AND NOT TBB)
 
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag("-std=c++11" COMPILER_HAS_CXX11_FLAG)
@@ -412,7 +445,7 @@ if (CXX11 AND COMPILER_HAS_CXX11_FLAG)
   # Update CMAKE_REQUIRED_FLAGS used by CheckCXXSourceCompiles to include
   # -std=c++11 s/t we will detect the C++11 versions of unordered_map &
   # shared_ptr if they exist.
-  set(CMAKE_REQUIRED_FLAGS -std=c++11)
+  set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11")
 endif (CXX11 AND COMPILER_HAS_CXX11_FLAG)
 
 # Set the Ceres compile definitions for the unordered_map configuration.
@@ -464,7 +497,12 @@ if (CXX11)
     message("   of Ceres that will require the use of C++11 in client code.")
     message("   ==============================================================")
     list(APPEND CERES_COMPILE_OPTIONS CERES_USE_CXX11)
-    if (COMPILER_HAS_CXX11_FLAG)
+    if (COMPILER_HAS_CXX11_FLAG AND
+        CMAKE_VERSION VERSION_LESS "2.8.12")
+      # For CMake versions > 2.8.12, the C++11 dependency is rolled into the
+      # Ceres target, and all dependent targets, but for older versions of CMake
+      # the flag must be specified explicitly both for Ceres and the
+      # examples/tests.
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     endif()
   endif()
@@ -493,6 +531,7 @@ include_directories(SYSTEM ${EIGEN_INCLUDE_DIRS})
 if (SUITESPARSE)
   include_directories(${SUITESPARSE_INCLUDE_DIRS})
 endif (SUITESPARSE)
+
 if (CXSPARSE)
   include_directories(${CXSPARSE_INCLUDE_DIRS})
 endif (CXSPARSE)

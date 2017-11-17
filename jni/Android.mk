@@ -144,14 +144,18 @@ LOCAL_SRC_FILES := $(CERES_SRC_PATH)/array_utils.cc \
                    $(CERES_SRC_PATH)/dogleg_strategy.cc \
                    $(CERES_SRC_PATH)/dynamic_compressed_row_jacobian_writer.cc \
                    $(CERES_SRC_PATH)/dynamic_compressed_row_sparse_matrix.cc \
+                   $(CERES_SRC_PATH)/dynamic_sparse_normal_cholesky_solver.cc \
+                   $(CERES_SRC_PATH)/eigensparse.cc \
                    $(CERES_SRC_PATH)/evaluator.cc \
                    $(CERES_SRC_PATH)/file.cc \
+                   $(CERES_SRC_PATH)/function_sample.cc \
                    $(CERES_SRC_PATH)/gradient_checker.cc \
                    $(CERES_SRC_PATH)/gradient_checking_cost_function.cc \
                    $(CERES_SRC_PATH)/gradient_problem.cc \
                    $(CERES_SRC_PATH)/gradient_problem_solver.cc \
                    $(CERES_SRC_PATH)/is_close.cc \
                    $(CERES_SRC_PATH)/implicit_schur_complement.cc \
+                   $(CERES_SRC_PATH)/inner_product_computer.cc \
                    $(CERES_SRC_PATH)/iterative_schur_complement_solver.cc \
                    $(CERES_SRC_PATH)/lapack.cc \
                    $(CERES_SRC_PATH)/levenberg_marquardt_strategy.cc \
@@ -183,8 +187,10 @@ LOCAL_SRC_FILES := $(CERES_SRC_PATH)/array_utils.cc \
                    $(CERES_SRC_PATH)/schur_jacobi_preconditioner.cc \
                    $(CERES_SRC_PATH)/schur_templates.cc \
                    $(CERES_SRC_PATH)/scratch_evaluate_preparer.cc \
+                   $(CERES_SRC_PATH)/single_linkage_clustering.cc \
                    $(CERES_SRC_PATH)/solver.cc \
                    $(CERES_SRC_PATH)/solver_utils.cc \
+                   $(CERES_SRC_PATH)/sparse_cholesky.cc \
                    $(CERES_SRC_PATH)/sparse_matrix.cc \
                    $(CERES_SRC_PATH)/sparse_normal_cholesky_solver.cc \
                    $(CERES_SRC_PATH)/split.cc \
