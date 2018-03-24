@@ -42,10 +42,11 @@
 #include <map>
 #include <vector>
 
+#include "ceres/collections_port.h"
+#include "ceres/context_impl.h"
 #include "ceres/internal/macros.h"
 #include "ceres/internal/port.h"
 #include "ceres/internal/scoped_ptr.h"
-#include "ceres/collections_port.h"
 #include "ceres/problem.h"
 #include "ceres/types.h"
 
@@ -181,15 +182,11 @@ class ProblemImpl {
     return residual_block_set_;
   }
 
+  ContextImpl* context() { return context_impl_; }
+
  private:
   ParameterBlock* InternalAddParameterBlock(double* values, int size);
   void InternalRemoveResidualBlock(ResidualBlock* residual_block);
-
-  bool InternalEvaluate(Program* program,
-                        double* cost,
-                        std::vector<double>* residuals,
-                        std::vector<double>* gradient,
-                        CRSMatrix* jacobian);
 
   // Delete the arguments in question. These differ from the Remove* functions
   // in that they do not clean up references to the block to delete; they
@@ -201,6 +198,9 @@ class ProblemImpl {
   void DeleteBlock(ParameterBlock* parameter_block);
 
   const Problem::Options options_;
+
+  bool context_impl_owned_;
+  ContextImpl* context_impl_;
 
   // The mapping from user pointers to parameter blocks.
   std::map<double*, ParameterBlock*> parameter_block_map_;

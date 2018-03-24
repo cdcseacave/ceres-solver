@@ -32,7 +32,7 @@
 #ifndef CERES_PUBLIC_TINY_SOLVER_COST_FUNCTION_ADAPTER_H_
 #define CERES_PUBLIC_TINY_SOLVER_COST_FUNCTION_ADAPTER_H_
 
-#include <Eigen/Core>
+#include "Eigen/Core"
 #include "ceres/cost_function.h"
 #include "glog/logging.h"
 
@@ -76,7 +76,7 @@ template <int kNumResiduals = Eigen::Dynamic, int kNumParameters = Eigen::Dynami
 class TinySolverCostFunctionAdapter {
  public:
   typedef double Scalar;
-  enum {
+  enum ComponentSizeType {
     NUM_PARAMETERS = kNumParameters,
     NUM_RESIDUALS = kNumResiduals
   };

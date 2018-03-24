@@ -66,9 +66,8 @@
 #include "Eigen/Dense"
 #include "glog/logging.h"
 
-#ifdef CERES_USE_TBB
-#include <tbb/parallel_for.h>
-#include <tbb/task_scheduler_init.h>
+#if defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS)
+#include "ceres/parallel_for.h"
 #endif
 
 namespace ceres {
@@ -195,12 +194,12 @@ Eliminate(const BlockSparseMatrix* A,
 #pragma omp parallel for num_threads(num_threads_) schedule(dynamic)
 #endif // CERES_USE_OPENMP
 
-#ifndef CERES_USE_TBB
+#if !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
     for (int i = num_eliminate_blocks_; i < num_col_blocks; ++i) {
 #else
-    tbb::task_scheduler_init tbb_task_scheduler_init(num_threads_);
-    tbb::parallel_for(num_eliminate_blocks_, num_col_blocks, [&](int i) {
-#endif // !CERES_USE_TBB
+    ParallelFor(context_, num_eliminate_blocks_, num_col_blocks, num_threads_,
+                [&](int i) {
+#endif // !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
 
       const int block_id = i - num_eliminate_blocks_;
       int r, c, row_stride, col_stride;
@@ -218,12 +217,14 @@ Eliminate(const BlockSparseMatrix* A,
             += diag.array().square().matrix();
       }
     }
-#ifdef CERES_USE_TBB
+#if defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS)
     );
-#endif // CERES_USE_TBB
+#endif // defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS)
   }
 
+#if !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
   ThreadTokenProvider thread_token_provider(num_threads_);
+#endif // !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
 
 #ifdef CERES_USE_OPENMP
   // Eliminate y blocks one chunk at a time.  For each chunk, compute
@@ -242,15 +243,17 @@ Eliminate(const BlockSparseMatrix* A,
 #pragma omp parallel for num_threads(num_threads_) schedule(dynamic)
 #endif // CERES_USE_OPENMP
 
-#ifndef CERES_USE_TBB
+#if !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
   for (int i = 0; i < chunks_.size(); ++i) {
-#else
-  tbb::task_scheduler_init tbb_task_scheduler_init(num_threads_);
-  tbb::parallel_for(0, int(chunks_.size()), [&](int i) {
-#endif // !CERES_USE_TBB
-
     const ScopedThreadToken scoped_thread_token(&thread_token_provider);
     const int thread_id = scoped_thread_token.token();
+#else
+    ParallelFor(context_,
+                0,
+                int(chunks_.size()),
+                num_threads_,
+                [&](int thread_id, int i) {
+#endif // !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
 
     double* buffer = buffer_.get() + thread_id * buffer_size_;
     const Chunk& chunk = chunks_[i];
@@ -316,9 +319,9 @@ Eliminate(const BlockSparseMatrix* A,
     ChunkOuterProduct(
         thread_id, bs, inverse_ete, buffer, chunk.buffer_layout, lhs);
   }
-#ifdef CERES_USE_TBB
-    );
-#endif // CERES_USE_TBB
+#if defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS)
+  );
+#endif // defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS)
 
   // For rows with no e_blocks, the schur complement update reduces to
   // S += F'F.
@@ -339,12 +342,11 @@ BackSubstitute(const BlockSparseMatrix* A,
 #pragma omp parallel for num_threads(num_threads_) schedule(dynamic)
 #endif // CERES_USE_OPENMP
 
-#ifndef CERES_USE_TBB
+#if !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
   for (int i = 0; i < chunks_.size(); ++i) {
 #else
-  tbb::task_scheduler_init tbb_task_scheduler_init(num_threads_);
-  tbb::parallel_for(0, int(chunks_.size()), [&](int i) {
-#endif // !CERES_USE_TBB
+  ParallelFor(context_, 0, int(chunks_.size()), num_threads_, [&](int i) {
+#endif // !(defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS))
 
     const Chunk& chunk = chunks_[i];
     const int e_block_id = bs->rows[chunk.start].cells.front().block_id;
@@ -401,9 +403,9 @@ BackSubstitute(const BlockSparseMatrix* A,
     y_block = InvertPSDMatrix<kEBlockSize>(assume_full_rank_ete_, ete)
         * y_block;
   }
-#ifdef CERES_USE_TBB
+#if defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS)
   );
-#endif // CERES_USE_TBB
+#endif // defined(CERES_USE_TBB) || defined(CERES_USE_CXX11_THREADS)
 }
 
 // Update the rhs of the reduced linear system. Compute
