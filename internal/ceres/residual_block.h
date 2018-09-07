@@ -34,12 +34,13 @@
 #ifndef CERES_INTERNAL_RESIDUAL_BLOCK_H_
 #define CERES_INTERNAL_RESIDUAL_BLOCK_H_
 
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "ceres/cost_function.h"
 #include "ceres/internal/port.h"
-#include "ceres/internal/scoped_ptr.h"
 #include "ceres/stringprintf.h"
 #include "ceres/types.h"
 
@@ -134,12 +135,12 @@ class ResidualBlock {
  private:
   const CostFunction* cost_function_;
   const LossFunction* loss_function_;
-  scoped_array<ParameterBlock*> parameter_blocks_;
+  std::unique_ptr<ParameterBlock*[]> parameter_blocks_;
 
   // The index of the residual, typically in a Program. This is only to permit
   // switching from a ResidualBlock* to an index in the Program's array, needed
   // to do efficient removals.
-  int32 index_;
+  int32_t index_;
 };
 
 }  // namespace internal

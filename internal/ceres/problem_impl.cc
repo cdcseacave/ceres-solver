@@ -33,11 +33,14 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
+
 #include "ceres/casts.h"
 #include "ceres/compressed_row_jacobian_writer.h"
 #include "ceres/compressed_row_sparse_matrix.h"
@@ -63,7 +66,6 @@ namespace internal {
 using std::map;
 using std::string;
 using std::vector;
-typedef std::map<double*, internal::ParameterBlock*> ParameterMap;
 
 namespace {
 // Returns true if two regions of memory, a and b, with sizes size_a and size_b
@@ -90,7 +92,7 @@ void CheckForNoAliasing(double* existing_block,
 template <typename KeyType>
 void DecrementValueOrDeleteKey(const KeyType key,
                                std::map<KeyType, int>* container) {
-  typename std::map<KeyType, int>::iterator it = container->find(key);
+  auto it = container->find(key);
   if (it->second == 1) {
     delete key;
     container->erase(it);
@@ -183,7 +185,7 @@ ParameterBlock* ProblemImpl::InternalAddParameterBlock(double* values,
 }
 
 void ProblemImpl::InternalRemoveResidualBlock(ResidualBlock* residual_block) {
-  CHECK_NOTNULL(residual_block);
+  CHECK(residual_block != nullptr);
   // Perform no check on the validity of residual_block, that is handled in
   // the public method: RemoveResidualBlock().
 
@@ -288,12 +290,12 @@ ResidualBlock* ProblemImpl::AddResidualBlock(
     CostFunction* cost_function,
     LossFunction* loss_function,
     const vector<double*>& parameter_blocks) {
-  CHECK_NOTNULL(cost_function);
+  CHECK(cost_function != nullptr);
   CHECK_EQ(parameter_blocks.size(),
            cost_function->parameter_block_sizes().size());
 
   // Check the sizes match.
-  const vector<int32>& parameter_block_sizes =
+  const vector<int32_t>& parameter_block_sizes =
       cost_function->parameter_block_sizes();
 
   if (!options_.disable_all_safety_checks) {
@@ -560,7 +562,7 @@ void ProblemImpl::DeleteBlockInVector(vector<Block*>* mutable_blocks,
 }
 
 void ProblemImpl::RemoveResidualBlock(ResidualBlock* residual_block) {
-  CHECK_NOTNULL(residual_block);
+  CHECK(residual_block != nullptr);
 
   // Verify that residual_block identifies a residual in the current problem.
   const string residual_not_found_message =
@@ -716,6 +718,28 @@ void ProblemImpl::SetParameterUpperBound(double* values,
   parameter_block->SetUpperBound(index, upper_bound);
 }
 
+double ProblemImpl::GetParameterLowerBound(double* values, int index) const {
+  ParameterBlock* parameter_block =
+      FindWithDefault(parameter_block_map_, values, NULL);
+  if (parameter_block == NULL) {
+    LOG(FATAL) << "Parameter block not found: " << values
+               << ". You must add the parameter block to the problem before "
+               << "you can get the lower bound on one of its components.";
+  }
+  return parameter_block->LowerBound(index);
+}
+
+double ProblemImpl::GetParameterUpperBound(double* values, int index) const {
+  ParameterBlock* parameter_block =
+      FindWithDefault(parameter_block_map_, values, NULL);
+  if (parameter_block == NULL) {
+    LOG(FATAL) << "Parameter block not found: " << values
+               << ". You must add the parameter block to the problem before "
+               << "you can set an upper bound on one of its components.";
+  }
+  return parameter_block->UpperBound(index);
+}
+
 bool ProblemImpl::Evaluate(const Problem::EvaluateOptions& evaluate_options,
                            double* cost,
                            vector<double>* residuals,
@@ -811,7 +835,7 @@ bool ProblemImpl::Evaluate(const Problem::EvaluateOptions& evaluate_options,
   evaluator_options.linear_solver_type = SPARSE_NORMAL_CHOLESKY;
 #ifdef CERES_NO_THREADS
   LOG_IF(WARNING, evaluate_options.num_threads > 1)
-      << "Neither OpenMP nor TBB support is compiled into this binary; "
+      << "No threading support is compiled into this binary; "
       << "only evaluate_options.num_threads = 1 is supported. Switching "
       << "to single threaded mode.";
   evaluator_options.num_threads = 1;
@@ -823,7 +847,7 @@ bool ProblemImpl::Evaluate(const Problem::EvaluateOptions& evaluate_options,
   context_impl_->EnsureMinimumThreads(evaluator_options.num_threads - 1);
   evaluator_options.context = context_impl_;
 
-  scoped_ptr<Evaluator> evaluator(
+  std::unique_ptr<Evaluator> evaluator(
       new ProgramEvaluator<ScratchEvaluatePreparer,
                            CompressedRowJacobianWriter>(evaluator_options,
                                                         &program));
@@ -836,7 +860,7 @@ bool ProblemImpl::Evaluate(const Problem::EvaluateOptions& evaluate_options,
     gradient->resize(evaluator->NumEffectiveParameters());
   }
 
-  scoped_ptr<CompressedRowSparseMatrix> tmp_jacobian;
+  std::unique_ptr<CompressedRowSparseMatrix> tmp_jacobian;
   if (jacobian != NULL) {
     tmp_jacobian.reset(
         down_cast<CompressedRowSparseMatrix*>(evaluator->CreateJacobian()));
@@ -934,18 +958,17 @@ bool ProblemImpl::HasParameterBlock(const double* parameter_block) const {
 }
 
 void ProblemImpl::GetParameterBlocks(vector<double*>* parameter_blocks) const {
-  CHECK_NOTNULL(parameter_blocks);
+  CHECK(parameter_blocks != nullptr);
   parameter_blocks->resize(0);
-  for (ParameterMap::const_iterator it = parameter_block_map_.begin();
-       it != parameter_block_map_.end();
-       ++it) {
-    parameter_blocks->push_back(it->first);
+  parameter_blocks->reserve(parameter_block_map_.size());
+  for (const auto& entry : parameter_block_map_) {
+    parameter_blocks->push_back(entry.first);
   }
 }
 
 void ProblemImpl::GetResidualBlocks(
     vector<ResidualBlockId>* residual_blocks) const {
-  CHECK_NOTNULL(residual_blocks);
+  CHECK(residual_blocks != nullptr);
   *residual_blocks = program().residual_blocks();
 }
 
@@ -953,7 +976,8 @@ void ProblemImpl::GetParameterBlocksForResidualBlock(
     const ResidualBlockId residual_block,
     vector<double*>* parameter_blocks) const {
   int num_parameter_blocks = residual_block->NumParameterBlocks();
-  CHECK_NOTNULL(parameter_blocks)->resize(num_parameter_blocks);
+  CHECK(parameter_blocks != nullptr);
+  parameter_blocks->resize(num_parameter_blocks);
   for (int i = 0; i < num_parameter_blocks; ++i) {
     (*parameter_blocks)[i] =
         residual_block->parameter_blocks()[i]->mutable_user_state();
@@ -984,8 +1008,8 @@ void ProblemImpl::GetResidualBlocksForParameterBlock(
   if (options_.enable_fast_removal) {
     // In this case the residual blocks that depend on the parameter block are
     // stored in the parameter block already, so just copy them out.
-    CHECK_NOTNULL(residual_blocks)->resize(
-        parameter_block->mutable_residual_blocks()->size());
+    CHECK(residual_blocks != nullptr);
+    residual_blocks->resize(parameter_block->mutable_residual_blocks()->size());
     std::copy(parameter_block->mutable_residual_blocks()->begin(),
               parameter_block->mutable_residual_blocks()->end(),
               residual_blocks->begin());
@@ -993,7 +1017,8 @@ void ProblemImpl::GetResidualBlocksForParameterBlock(
   }
 
   // Find residual blocks that depend on the parameter block.
-  CHECK_NOTNULL(residual_blocks)->clear();
+  CHECK(residual_blocks != nullptr);
+  residual_blocks->clear();
   const int num_residual_blocks = NumResidualBlocks();
   for (int i = 0; i < num_residual_blocks; ++i) {
     ResidualBlock* residual_block =

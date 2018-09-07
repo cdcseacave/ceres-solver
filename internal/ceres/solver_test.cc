@@ -31,11 +31,11 @@
 #include "ceres/solver.h"
 
 #include <limits>
+#include <memory>
 #include <cmath>
 #include <vector>
 #include "gtest/gtest.h"
 #include "ceres/evaluation_callback.h"
-#include "ceres/internal/scoped_ptr.h"
 #include "ceres/autodiff_cost_function.h"
 #include "ceres/sized_cost_function.h"
 #include "ceres/problem.h"
@@ -98,7 +98,7 @@ TEST(Solver, UpdateStateEveryIterationOption) {
   double x = 50.0;
   const double original_x = x;
 
-  scoped_ptr<CostFunction> cost_function(QuadraticCostFunctor::Create());
+  std::unique_ptr<CostFunction> cost_function(QuadraticCostFunctor::Create());
   Problem::Options problem_options;
   problem_options.cost_function_ownership = DO_NOT_TAKE_OWNERSHIP;
   Problem problem(problem_options);
@@ -314,6 +314,24 @@ TEST(Solver, SparseNormalCholeskyNoCXSparse) {
 TEST(Solver, SparseSchurNoCXSparse) {
   Solver::Options options;
   options.sparse_linear_algebra_library_type = CX_SPARSE;
+  options.linear_solver_type = SPARSE_SCHUR;
+  string message;
+  EXPECT_FALSE(options.IsValid(&message));
+}
+#endif
+
+#if defined(CERES_NO_ACCELERATE_SPARSE)
+TEST(Solver, SparseNormalCholeskyNoAccelerateSparse) {
+  Solver::Options options;
+  options.sparse_linear_algebra_library_type = ACCELERATE_SPARSE;
+  options.linear_solver_type = SPARSE_NORMAL_CHOLESKY;
+  string message;
+  EXPECT_FALSE(options.IsValid(&message));
+}
+
+TEST(Solver, SparseSchurNoAccelerateSparse) {
+  Solver::Options options;
+  options.sparse_linear_algebra_library_type = ACCELERATE_SPARSE;
   options.linear_solver_type = SPARSE_SCHUR;
   string message;
   EXPECT_FALSE(options.IsValid(&message));

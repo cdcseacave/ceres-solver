@@ -40,13 +40,12 @@
 #define CERES_PUBLIC_PROBLEM_IMPL_H_
 
 #include <map>
+#include <memory>
+#include <unordered_set>
 #include <vector>
 
-#include "ceres/collections_port.h"
 #include "ceres/context_impl.h"
-#include "ceres/internal/macros.h"
 #include "ceres/internal/port.h"
-#include "ceres/internal/scoped_ptr.h"
 #include "ceres/problem.h"
 #include "ceres/types.h"
 
@@ -65,12 +64,14 @@ class ResidualBlock;
 class ProblemImpl {
  public:
   typedef std::map<double*, ParameterBlock*> ParameterMap;
-  typedef HashSet<ResidualBlock*> ResidualBlockSet;
+  typedef std::unordered_set<ResidualBlock*> ResidualBlockSet;
   typedef std::map<CostFunction*, int> CostFunctionRefCount;
   typedef std::map<LossFunction*, int> LossFunctionRefCount;
 
   ProblemImpl();
   explicit ProblemImpl(const Problem::Options& options);
+  ProblemImpl(const ProblemImpl&) = delete;
+  void operator=(const ProblemImpl&) = delete;
 
   ~ProblemImpl();
 
@@ -139,6 +140,8 @@ class ProblemImpl {
 
   void SetParameterLowerBound(double* values, int index, double lower_bound);
   void SetParameterUpperBound(double* values, int index, double upper_bound);
+  double GetParameterLowerBound(double* values, int index) const;
+  double GetParameterUpperBound(double* values, int index) const;
 
   bool Evaluate(const Problem::EvaluateOptions& options,
                 double* cost,
@@ -203,13 +206,13 @@ class ProblemImpl {
   ContextImpl* context_impl_;
 
   // The mapping from user pointers to parameter blocks.
-  std::map<double*, ParameterBlock*> parameter_block_map_;
+  ParameterMap parameter_block_map_;
 
   // Iff enable_fast_removal is enabled, contains the current residual blocks.
   ResidualBlockSet residual_block_set_;
 
   // The actual parameter and residual blocks.
-  internal::scoped_ptr<internal::Program> program_;
+  std::unique_ptr<internal::Program> program_;
 
   // When removing parameter blocks, parameterizations have ambiguous
   // ownership. Instead of scanning the entire problem to see if the
@@ -226,7 +229,6 @@ class ProblemImpl {
   CostFunctionRefCount cost_function_ref_count_;
   LossFunctionRefCount loss_function_ref_count_;
   std::vector<double*> residual_parameters_;
-  CERES_DISALLOW_COPY_AND_ASSIGN(ProblemImpl);
 };
 
 }  // namespace internal

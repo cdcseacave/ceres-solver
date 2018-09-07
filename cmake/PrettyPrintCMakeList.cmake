@@ -1,5 +1,5 @@
 # Ceres Solver - A fast non-linear least squares minimizer
-# Copyright 2015 Google Inc. All rights reserved.
+# Copyright 2018 Google Inc. All rights reserved.
 # http://ceres-solver.org/
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,33 +26,14 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: alexs.mac@gmail.com (Alex Stewart)
-#
+# Authors: alexs.mac@gmail.com (Alex Stewart)
 
-# FindCXX11MathFunctions.cmake - Find C++11 math functions.
+# pretty_print_cmake_list( OUTPUT_VAR [item1 [item2 ... ]] )
 #
-# This module defines the following variables:
-#
-# CXX11_MATH_FUNCTIONS_FOUND: TRUE if C++11 math functions are found.
-
-macro(find_cxx11_math_functions)
-  # To support CXX11 option, clear the results of all check_xxx() functions
-  # s/t we always perform the checks each time, otherwise CMake fails to
-  # detect that the tests should be performed again after CXX11 is toggled.
-  unset(CXX11_MATH_FUNCTIONS_FOUND CACHE)
-
-  # Verify that all C++11-specific math functions used by jet.h exist.
-  check_cxx_source_compiles("#include <cmath>
-                             #include <cstddef>
-                             static constexpr size_t kMaxAlignBytes = alignof(std::max_align_t);
-                             int main() {
-                                std::cbrt(1.0);
-                                std::exp2(1.0);
-                                std::log2(1.0);
-                                std::hypot(1.0, 1.0);
-                                std::fmax(1.0, 1.0);
-                                std::fmin(1.0, 1.0);
-                                return 0;
-                             }"
-                             CXX11_MATH_FUNCTIONS_FOUND)
-endmacro()
+# Sets ${OUTPUT_VAR} in the caller's scope to a human-readable string
+# representation of the list passed as the remaining arguments formed
+# as: "[item1, item2, ..., itemN]".
+function(pretty_print_cmake_list OUTPUT_VAR)
+  string(REPLACE ";" ", " PRETTY_LIST_STRING "[${ARGN}]")
+  set(${OUTPUT_VAR} "${PRETTY_LIST_STRING}" PARENT_SCOPE)
+endfunction()

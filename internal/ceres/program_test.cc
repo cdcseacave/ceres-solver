@@ -30,9 +30,11 @@
 
 #include "ceres/program.h"
 
-#include <limits>
 #include <cmath>
+#include <limits>
+#include <memory>
 #include <vector>
+
 #include "ceres/sized_cost_function.h"
 #include "ceres/problem_impl.h"
 #include "ceres/residual_block.h"
@@ -94,12 +96,9 @@ TEST(Program, RemoveFixedBlocksNothingConstant) {
   vector<double*> removed_parameter_blocks;
   double fixed_cost = 0.0;
   string message;
-  scoped_ptr<Program> reduced_program(
-      CHECK_NOTNULL(problem
-                    .program()
-                    .CreateReducedProgram(&removed_parameter_blocks,
-                                          &fixed_cost,
-                                          &message)));
+  std::unique_ptr<Program> reduced_program(
+      problem.program().CreateReducedProgram(
+          &removed_parameter_blocks, &fixed_cost, &message));
 
   EXPECT_EQ(reduced_program->NumParameterBlocks(), 3);
   EXPECT_EQ(reduced_program->NumResidualBlocks(), 3);
@@ -118,12 +117,10 @@ TEST(Program, RemoveFixedBlocksAllParameterBlocksConstant) {
   vector<double*> removed_parameter_blocks;
   double fixed_cost = 0.0;
   string message;
-  scoped_ptr<Program> reduced_program(
-      CHECK_NOTNULL(problem
-                    .program()
-                    .CreateReducedProgram(&removed_parameter_blocks,
-                                          &fixed_cost,
-                                          &message)));
+  std::unique_ptr<Program> reduced_program(
+      problem.program().CreateReducedProgram(
+          &removed_parameter_blocks, &fixed_cost, &message));
+
   EXPECT_EQ(reduced_program->NumParameterBlocks(), 0);
   EXPECT_EQ(reduced_program->NumResidualBlocks(), 0);
   EXPECT_EQ(removed_parameter_blocks.size(), 1);
@@ -145,12 +142,9 @@ TEST(Program, RemoveFixedBlocksNoResidualBlocks) {
   vector<double*> removed_parameter_blocks;
   double fixed_cost = 0.0;
   string message;
-  scoped_ptr<Program> reduced_program(
-      CHECK_NOTNULL(problem
-                    .program()
-                    .CreateReducedProgram(&removed_parameter_blocks,
-                                          &fixed_cost,
-                                          &message)));
+  std::unique_ptr<Program> reduced_program(
+      problem.program().CreateReducedProgram(
+          &removed_parameter_blocks, &fixed_cost, &message));
   EXPECT_EQ(reduced_program->NumParameterBlocks(), 0);
   EXPECT_EQ(reduced_program->NumResidualBlocks(), 0);
   EXPECT_EQ(removed_parameter_blocks.size(), 3);
@@ -174,12 +168,9 @@ TEST(Program, RemoveFixedBlocksOneParameterBlockConstant) {
   vector<double*> removed_parameter_blocks;
   double fixed_cost = 0.0;
   string message;
-  scoped_ptr<Program> reduced_program(
-      CHECK_NOTNULL(problem
-                    .program()
-                    .CreateReducedProgram(&removed_parameter_blocks,
-                                          &fixed_cost,
-                                          &message)));
+  std::unique_ptr<Program> reduced_program(
+      problem.program().CreateReducedProgram(
+          &removed_parameter_blocks, &fixed_cost, &message));
   EXPECT_EQ(reduced_program->NumParameterBlocks(), 1);
   EXPECT_EQ(reduced_program->NumResidualBlocks(), 1);
 }
@@ -201,12 +192,9 @@ TEST(Program, RemoveFixedBlocksNumEliminateBlocks) {
   vector<double*> removed_parameter_blocks;
   double fixed_cost = 0.0;
   string message;
-  scoped_ptr<Program> reduced_program(
-      CHECK_NOTNULL(problem
-                    .program()
-                    .CreateReducedProgram(&removed_parameter_blocks,
-                                          &fixed_cost,
-                                          &message)));
+  std::unique_ptr<Program> reduced_program(
+      problem.program().CreateReducedProgram(
+          &removed_parameter_blocks, &fixed_cost, &message));
   EXPECT_EQ(reduced_program->NumParameterBlocks(), 2);
   EXPECT_EQ(reduced_program->NumResidualBlocks(), 2);
 }
@@ -227,7 +215,7 @@ TEST(Program, RemoveFixedBlocksFixedCost) {
 
   ResidualBlock *expected_removed_block =
       problem.program().residual_blocks()[0];
-  scoped_array<double> scratch(
+  std::unique_ptr<double[]> scratch(
       new double[expected_removed_block->NumScratchDoublesForEvaluate()]);
   double expected_fixed_cost;
   expected_removed_block->Evaluate(true,
@@ -240,12 +228,9 @@ TEST(Program, RemoveFixedBlocksFixedCost) {
   vector<double*> removed_parameter_blocks;
   double fixed_cost = 0.0;
   string message;
-  scoped_ptr<Program> reduced_program(
-      CHECK_NOTNULL(problem
-                    .program()
-                    .CreateReducedProgram(&removed_parameter_blocks,
-                                          &fixed_cost,
-                                          &message)));
+  std::unique_ptr<Program> reduced_program(
+      problem.program().CreateReducedProgram(
+          &removed_parameter_blocks, &fixed_cost, &message));
 
   EXPECT_EQ(reduced_program->NumParameterBlocks(), 2);
   EXPECT_EQ(reduced_program->NumResidualBlocks(), 2);
@@ -318,7 +303,7 @@ TEST(Program, CreateJacobianBlockSparsityTranspose) {
   Program* program = problem.mutable_program();
   program->SetParameterOffsetsAndIndex();
 
-  scoped_ptr<TripletSparseMatrix> actual_block_sparse_jacobian(
+  std::unique_ptr<TripletSparseMatrix> actual_block_sparse_jacobian(
       program->CreateJacobianBlockSparsityTranspose());
 
   Matrix expected_dense_jacobian;
@@ -385,7 +370,7 @@ TEST(Program, ReallocationInCreateJacobianBlockSparsityTranspose) {
   Program* program = problem.mutable_program();
   program->SetParameterOffsetsAndIndex();
 
-  scoped_ptr<TripletSparseMatrix> actual_block_sparse_jacobian(
+  std::unique_ptr<TripletSparseMatrix> actual_block_sparse_jacobian(
       program->CreateJacobianBlockSparsityTranspose());
 
   Matrix expected_dense_jacobian;

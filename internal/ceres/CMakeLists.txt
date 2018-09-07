@@ -28,7 +28,23 @@
 #
 # Author: keir@google.com (Keir Mierle)
 
+# Avoid 'xxx.cc has no symbols' warnings from source files which are 'empty'
+# when their enclosing #ifdefs are disabled.
+if (CERES_THREADING_MODEL STREQUAL "CXX11_THREADS")
+  set(CERES_PARALLEL_FOR_SRC parallel_for_cxx.cc thread_pool.cc)
+elseif (CERES_THREADING_MODEL STREQUAL "OPENMP")
+  set(CERES_PARALLEL_FOR_SRC parallel_for_openmp.cc)
+  if (CMAKE_COMPILER_IS_GNUCXX)
+    # OpenMP in GCC requires the GNU OpenMP library.
+    list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES gomp)
+  endif()
+elseif (CERES_THREADING_MODEL STREQUAL "NO_THREADS")
+  set(CERES_PARALLEL_FOR_SRC parallel_for_nothreads.cc)
+endif()
+
 set(CERES_INTERNAL_SRC
+    ${CERES_PARALLEL_FOR_SRC}
+    accelerate_sparse.cc
     array_utils.cc
     blas.cc
     block_evaluate_preparer.cc
@@ -67,6 +83,8 @@ set(CERES_INTERNAL_SRC
     evaluator.cc
     eigensparse.cc
     file.cc
+    float_suitesparse.cc
+    float_cxsparse.cc
     function_sample.cc
     gradient_checker.cc
     gradient_checking_cost_function.cc
@@ -75,6 +93,7 @@ set(CERES_INTERNAL_SRC
     implicit_schur_complement.cc
     inner_product_computer.cc
     is_close.cc
+    iterative_refiner.cc
     iterative_schur_complement_solver.cc
     levenberg_marquardt_strategy.cc
     lapack.cc
@@ -90,8 +109,6 @@ set(CERES_INTERNAL_SRC
     low_rank_inverse_hessian.cc
     minimizer.cc
     normal_prior.cc
-    parallel_for_cxx.cc
-    parallel_for_tbb.cc
     parallel_utils.cc
     parameter_block_ordering.cc
     partitioned_matrix_view.cc
@@ -119,7 +136,6 @@ set(CERES_INTERNAL_SRC
     split.cc
     stringprintf.cc
     suitesparse.cc
-    thread_pool.cc
     thread_token_provider.cc
     triplet_sparse_matrix.cc
     trust_region_preprocessor.cc
@@ -137,6 +153,9 @@ file(GLOB CERES_INTERNAL_HDRS *.h)
 if (MINIGLOG)
   file(GLOB MINIGLOG_HDRS miniglog/glog/*.h)
   list(APPEND CERES_INTERNAL_HDRS ${MINIGLOG_HDRS})
+  if (ANDROID)
+    list(APPEND CERES_LIBRARY_PUBLIC_DEPENDENCIES log)
+  endif()
 endif()
 
 # Depend also on public headers so they appear in IDEs.
@@ -152,6 +171,9 @@ else (SCHUR_SPECIALIZATIONS)
 endif (SCHUR_SPECIALIZATIONS)
 
 # Build the list of dependencies for Ceres based on the current configuration.
+find_package(Threads QUIET)
+list(APPEND CERES_LIBRARY_PUBLIC_DEPENDENCIES Threads::Threads)
+
 if (NOT MINIGLOG AND GLOG_FOUND)
   list(APPEND CERES_LIBRARY_PUBLIC_DEPENDENCIES ${GLOG_LIBRARIES})
   if (GFLAGS_FOUND)
@@ -176,24 +198,13 @@ if (CXSPARSE AND CXSPARSE_FOUND)
   list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${CXSPARSE_LIBRARIES})
 endif (CXSPARSE AND CXSPARSE_FOUND)
 
+if (ACCELERATESPARSE AND AccelerateSparse_FOUND)
+  list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${AccelerateSparse_LIBRARIES})
+endif()
 
-
-if (OPENMP_FOUND)
-  # OpenMP support in Clang requires a non-GNU OpenMP library.
-  if (CMAKE_COMPILER_IS_GNUCXX)
-    list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES gomp)
-  endif()
-  if (NOT MSVC)
-    list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${CMAKE_THREAD_LIBS_INIT})
-  endif()
-endif (OPENMP_FOUND)
-
-if (TBB_FOUND)
-  list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${TBB_LIBRARIES})
-  if (NOT MSVC)
-    list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${CMAKE_THREAD_LIBS_INIT})
-  endif (NOT MSVC)
-endif (TBB_FOUND)
+if (LAPACK_FOUND)
+  list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES ${LAPACK_LIBRARIES})
+endif ()
 
 set(CERES_LIBRARY_SOURCE
     ${CERES_INTERNAL_SRC}
@@ -213,26 +224,26 @@ set_target_properties(ceres PROPERTIES
   VERSION ${CERES_VERSION}
   SOVERSION ${CERES_VERSION_MAJOR})
 
+# The ability to specify a minimum language version via cxx_std_[11,14,17]
+# requires CMake >= 3.8.  Prior to that we have to specify the compiler features
+# we require.
+if (CMAKE_VERSION VERSION_LESS 3.8)
+  set(REQUIRED_PUBLIC_CXX_FEATURES cxx_alignas cxx_alignof cxx_constexpr)
+else()
+  # Forward whatever C++ version Ceres was compiled with as our requirement
+  # for downstream clients.
+  set(REQUIRED_PUBLIC_CXX_FEATURES cxx_std_${CMAKE_CXX_STANDARD})
+endif()
+target_compile_features(ceres PUBLIC ${REQUIRED_PUBLIC_CXX_FEATURES})
+
 include(AppendTargetProperty)
 # Always build position-independent code (PIC), even when building Ceres as a
 # static library so that shared libraries can link against it, not just
 # executables (PIC does not apply on Windows).
 if (NOT WIN32 AND NOT BUILD_SHARED_LIBS)
-  # Use the explicit POSITION_INDEPENDENT_CODE target property on CMake versions
-  # that support it (>= 2.8.9).  Otherwise, manually add the -fPIC flag as an
-  # additional compile definitions for the target.
-  if (CMAKE_VERSION VERSION_LESS "2.8.9")
-    append_target_property(ceres COMPILE_FLAGS "-fPIC")
-  else()
-    # Use set_target_properties() not append_target_property() here as
-    # POSITION_INDEPENDENT_CODE is a binary ON/OFF switch.
-    set_target_properties(ceres PROPERTIES POSITION_INDEPENDENT_CODE ON)
-  endif()
-endif()
-
-if (CXX11)
-  include(AddCeresCXX11RequirementsToTarget)
-  add_ceres_cxx11_requirements_to_target(ceres)
+  # Use set_target_properties() not append_target_property() here as
+  # POSITION_INDEPENDENT_CODE is a binary ON/OFF switch.
+  set_target_properties(ceres PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
 
 if (BUILD_SHARED_LIBS)
@@ -251,6 +262,80 @@ else (BUILD_SHARED_LIBS)
   target_link_libraries(ceres ${CERES_LIBRARY_DEPENDENCIES})
 endif (BUILD_SHARED_LIBS)
 
+# Add the Ceres headers to its target.
+#
+# Force the location containing the configured config.h to the front of the
+# include_directories list (by default it is appended to the back) to ensure
+# that if the user has an installed version of Ceres in the same location as one
+# of the dependencies (e.g. /usr/local) that we find the config.h we just
+# configured, not the (older) installed config.h.
+target_include_directories(ceres BEFORE PUBLIC
+  $<BUILD_INTERFACE:${Ceres_BINARY_DIR}/config>)
+target_include_directories(ceres PRIVATE ${Ceres_SOURCE_DIR}/internal)
+target_include_directories(ceres PUBLIC
+  $<BUILD_INTERFACE:${Ceres_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+
+# Eigen SparseQR generates various compiler warnings related to unused and
+# uninitialised local variables.  To avoid having to individually suppress these
+# warnings around the #include statments for Eigen headers across all GCC/Clang
+# versions, we tell CMake to treat Eigen headers as system headers.  This
+# results in all compiler warnings from them being suppressed.
+target_include_directories(ceres SYSTEM PUBLIC ${EIGEN_INCLUDE_DIRS})
+
+# Gather the list of public & private include locations for all enabled optional
+# dependencies to be added to the Ceres target.
+set(CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS "")
+set(CERES_LIBRARY_PUBLIC_DEPENDENCIES_INCLUDE_DIRS "")
+if (MINIGLOG)
+  # Force the miniglog headers to the front of the public include directories
+  # to protect against the case when the user has glog installed in a standard
+  # location (specifically the same as the Ceres install location) but compiled
+  # Ceres with MINIGLOG anyway.  Otherwise: "glog/logging.h" in the public Ceres
+  # headers used in client code would match the installed version of glog, not
+  # the miniglog headers, and the client application would fail to link.
+  #
+  # Note that this is an imperfect fix, as we cannot control the include
+  # directories in client projects, and they could easily invert this ordering
+  # themselves (intentionally or otherwise) and so break their build.
+  target_include_directories(ceres BEFORE PUBLIC
+    $<BUILD_INTERFACE:${Ceres_SOURCE_DIR}/internal/ceres/miniglog>
+    $<INSTALL_INTERFACE:include/ceres/internal/miniglog>)
+elseif (NOT FOUND_INSTALLED_GLOG_CMAKE_CONFIGURATION)
+  # Only append glog include directories if the glog found was not a CMake
+  # exported target that already includes them.
+  list(APPEND CERES_LIBRARY_PUBLIC_DEPENDENCIES_INCLUDE_DIRS
+    ${GLOG_INCLUDE_DIRS})
+endif()
+if (SUITESPARSE)
+  list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS
+    ${SUITESPARSE_INCLUDE_DIRS})
+endif()
+if (CXSPARSE)
+  list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS
+    ${CXSPARSE_INCLUDE_DIRS})
+endif()
+if (ACCELERATESPARSE)
+  list(APPEND CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS
+    ${AccelerateSparse_INCLUDE_DIRS})
+endif()
+if (GFLAGS AND NOT FOUND_INSTALLED_GFLAGS_CMAKE_CONFIGURATION)
+  # Only append gflags include directories if the gflags found was not a CMake
+  # exported target that already includes them.
+  list(APPEND CERES_LIBRARY_PUBLIC_DEPENDENCIES_INCLUDE_DIRS
+    ${GFLAGS_INCLUDE_DIRS})
+endif()
+# Add include locations for optional dependencies to the Ceres target without
+# duplication.
+list(REMOVE_DUPLICATES CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS)
+foreach(INC_DIR ${CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS})
+  target_include_directories(ceres PRIVATE ${INC_DIR})
+endforeach()
+list(REMOVE_DUPLICATES CERES_LIBRARY_PUBLIC_DEPENDENCIES_INCLUDE_DIRS)
+foreach(INC_DIR ${CERES_LIBRARY_PUBLIC_DEPENDENCIES_INCLUDE_DIRS})
+  target_include_directories(ceres PUBLIC ${INC_DIR})
+endforeach()
+
 install(TARGETS ceres
         EXPORT  CeresExport
         RUNTIME DESTINATION bin
@@ -259,6 +344,7 @@ install(TARGETS ceres
 
 if (BUILD_TESTING AND GFLAGS)
   add_library(gtest gmock_gtest_all.cc gmock_main.cc)
+  target_include_directories(gtest PUBLIC ${Ceres_SOURCE_DIR}/internal/ceres)
   if (BUILD_SHARED_LIBS)
     # Define gtest-specific shared library flags for compilation.
     append_target_property(gtest COMPILE_DEFINITIONS
@@ -269,6 +355,7 @@ if (BUILD_TESTING AND GFLAGS)
               evaluator_test_utils.cc
               numeric_diff_test_utils.cc
               test_util.cc)
+  target_include_directories(test_util PUBLIC ${Ceres_SOURCE_DIR}/internal)
 
   if (MINIGLOG)
     # When using miniglog, it is compiled into Ceres, thus Ceres becomes
@@ -282,6 +369,15 @@ if (BUILD_TESTING AND GFLAGS)
 
   macro (CERES_TEST NAME)
     add_executable(${NAME}_test ${NAME}_test.cc)
+    # Pull in local headers from the generated test directories when ceres_test()
+    # is invoked there, as well as the private headers in this directory which
+    # may be referenced without the 'ceres' path prefix and all private
+    # dependencies that may be directly referenced.
+    target_include_directories(${NAME}_test
+      PUBLIC ${CMAKE_CURRENT_LIST_DIR}
+             ${Ceres_SOURCE_DIR}/internal/ceres
+             ${CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS})
+
     target_link_libraries(${NAME}_test test_util ceres gtest)
     if (BUILD_SHARED_LIBS)
       # Define gtest-specific shared library flags for linking.
@@ -336,6 +432,7 @@ if (BUILD_TESTING AND GFLAGS)
   ceres_test(inner_product_computer)
   ceres_test(invert_psd_matrix)
   ceres_test(is_close)
+  ceres_test(iterative_refiner)
   ceres_test(iterative_schur_complement_solver)
   ceres_test(jet)
   ceres_test(levenberg_marquardt_strategy)
@@ -382,13 +479,20 @@ if (BUILD_TESTING AND GFLAGS)
 
 endif (BUILD_TESTING AND GFLAGS)
 
+macro(add_dependencies_to_benchmark BENCHMARK_TARGET)
+  target_link_libraries(${BENCHMARK_TARGET} ceres benchmark::benchmark)
+  target_include_directories(${BENCHMARK_TARGET} PUBLIC
+                             ${Ceres_SOURCE_DIR}/internal
+                             ${CERES_LIBRARY_PRIVATE_DEPENDENCIES_INCLUDE_DIRS})
+endmacro()
+
 if (BUILD_BENCHMARKS)
   add_executable(autodiff_cost_function_benchmark autodiff_cost_function_benchmark.cc)
-  target_link_libraries(autodiff_cost_function_benchmark ceres benchmark::benchmark)
+  add_dependencies_to_benchmark(autodiff_cost_function_benchmark)
 
   add_executable(small_blas_gemv_benchmark small_blas_gemv_benchmark.cc)
-  target_link_libraries(small_blas_gemv_benchmark ceres benchmark::benchmark)
+  add_dependencies_to_benchmark(small_blas_gemv_benchmark)
 
   add_executable(small_blas_gemm_benchmark small_blas_gemm_benchmark.cc)
-  target_link_libraries(small_blas_gemm_benchmark ceres benchmark::benchmark)
+  add_dependencies_to_benchmark(small_blas_gemm_benchmark)
 endif (BUILD_BENCHMARKS)

@@ -30,11 +30,12 @@
 
 #include "ceres/line_search.h"
 
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <iostream>  // NOLINT
 
 #include "ceres/evaluator.h"
-#include "ceres/fpclassify.h"
 #include "ceres/function_sample.h"
 #include "ceres/internal/eigen.h"
 #include "ceres/map_util.h"
@@ -127,7 +128,7 @@ void LineSearchFunction::Evaluate(const double x,
   const bool eval_status = evaluator_->Evaluate(
       output->vector_x.data(), &(output->value), NULL, gradient, NULL);
 
-  if (!eval_status || !IsFinite(output->value)) {
+  if (!eval_status || !std::isfinite(output->value)) {
     return;
   }
 
@@ -137,7 +138,7 @@ void LineSearchFunction::Evaluate(const double x,
   }
 
   output->gradient = direction_.dot(output->vector_gradient);
-  if (!IsFinite(output->gradient)) {
+  if (!std::isfinite(output->gradient)) {
     return;
   }
 
@@ -191,7 +192,8 @@ void LineSearch::Search(double step_size_estimate,
                         double initial_gradient,
                         Summary* summary) const {
   const double start_time = WallTimeInSeconds();
-  *CHECK_NOTNULL(summary) = LineSearch::Summary();
+  CHECK(summary != nullptr);
+  *summary = LineSearch::Summary();
 
   summary->cost_evaluation_time_in_seconds = 0.0;
   summary->gradient_evaluation_time_in_seconds = 0.0;
@@ -626,7 +628,18 @@ bool WolfeLineSearch::BracketingPhase(
     // being a boundary of a bracket.
 
     // If f(current) is valid, (but meets no criteria) expand the search by
-    // increasing the step size.
+    // increasing the step size.  If f(current) is invalid, contract the step
+    // size.
+    //
+    // In Nocedal & Wright [1] (p60), the step-size can only increase in the
+    // bracketing phase: step_size_{k+1} \in [step_size_k, step_size_k * factor].
+    // However this does not account for the function returning invalid values
+    // which we support, in which case we need to contract the step size whilst
+    // ensuring that we do not invert the bracket, i.e, we require that:
+    // step_size_{k-1} <= step_size_{k+1} < step_size_k.
+    const double min_step_size =
+        current.value_is_valid
+        ? current.x : previous.x;
     const double max_step_size =
         current.value_is_valid
         ? (current.x * options().max_step_expansion) : current.x;
@@ -645,7 +658,7 @@ bool WolfeLineSearch::BracketingPhase(
             previous,
             unused_previous,
             current,
-            previous.x,
+            min_step_size,
             max_step_size);
     summary->polynomial_minimization_time_in_seconds +=
         (WallTimeInSeconds() - polynomial_minimization_start_time);
@@ -658,6 +671,10 @@ bool WolfeLineSearch::BracketingPhase(
       return false;
     }
 
+    // Only advance the lower boundary (in x) of the bracket if f(current)
+    // is valid such that we can support contracting the step size when
+    // f(current) is invalid without risking inverting the bracket in x, i.e.
+    // prevent previous.x > current.x.
     previous = current.value_is_valid ? current : previous;
     ++summary->num_function_evaluations;
     ++summary->num_gradient_evaluations;
